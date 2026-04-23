@@ -1,4 +1,5 @@
 #version 450
+#extension GL_EXT_mesh_shader : enable
 
 layout (std140, binding = 0) uniform ComputeUniformBufferObject {
     float xCoefficient;
@@ -6,33 +7,26 @@ layout (std140, binding = 0) uniform ComputeUniformBufferObject {
     float zCoefficient;
     float wCoefficient;
     float constant;
-
 } ubo;
 
-struct HyperVertex {
+struct Vertex{
     vec4 position;
     vec3 color;
     vec4 normal;
 };
 
-struct Vertex {
-    vec3 position;
-    vec3 color;
-    vec3 normal;
+layout(std140, binding = 1) readonly buffer VertexSSBOIn {
+   Vertex verticesIn[ ];
 };
 
-layout(std140, binding = 1) readonly buffer HyperVertexSSBOIn {
-   HyperVertex verticesIn[ ];
+layout(local_size_x = 32) in;
+
+// Shared payload passed to all spawned mesh shader workgroups
+struct TaskPayload {
+    uint baseID;
+    uint meshletIndices[32];
 };
-
-layout(std140, binding = 2) buffer VertexSSBOOut {
-   Vertex verticesOut[ ];
-};
-
-layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
-
-uint index = gl_GlobalInvocationID.x;
-outputIndex = index;
+taskPayloadSharedEXT TaskPayload payload;
 
 vec4 coefficients(ubo.xCoefficient, ubo.yCoefficient, ubo.zCoefficient, ubo.wCoefficient);
 
@@ -71,8 +65,7 @@ float getHyperplaneSide(vec4 pos){
     return side;
 }
 
-void main(){
-
+bool isVisible(){
     //figure out which side of hyperplane each vertex is on
     vec4 hyperPlaneSide;
     for(int i = 0; i < 4; i++){
@@ -91,5 +84,18 @@ void main(){
             outputIndex = hyperPlaneSide[i] * hyperPlaneSide[j] < 0.f ? outputIndex + 1 : outputIndex;
         }
     }
+}
 
+void main() {
+    uint threadID = gl_LocalInvocationID.x;
+    
+    // Example: Simple frustum culling or LOD check would go here
+    bool visible = true; 
+    
+    if (isVisible()) {
+        payload.meshletIndices[threadID] = gl_WorkGroupID.x * 32 + threadID;
+    }
+
+    // Launch up to 32 mesh shader workgroups from this task group
+    EmitMeshTasksEXT(32, 1, 1); 
 }

@@ -58,8 +58,8 @@ int main(){
 
     //scene.Tesseract(glm::vec3(1.f));
 
-    scene.Cube(glm::vec3(1.f));
-    //scene.rotate(scene.Cube(glm::vec3(1.f)), glm::vec3(1.f), 30.f);
+    //scene.Cube(glm::vec3(1.f));
+    scene.rotate(scene.Cube(glm::vec3(1.f)), glm::vec3(1.f), 30.f);
 
 
 

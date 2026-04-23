@@ -10,7 +10,7 @@ layout(push_constant) uniform Push{
     mat4 modelMat;
 }push;
 
-vec3 lightPos = vec3(0.f, 0.f, 0.f);
+vec3 lightPos = vec3(5.f, 10.f, 10.f);
 vec3 ambient = vec3(0.1f, 0.1f, 0.1f);
 
 void main(){

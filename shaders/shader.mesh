@@ -1,0 +1,35 @@
+#version 450
+#extension GL_EXT_mesh_shader : enable
+
+struct Vertex{
+    vec4 position;
+    vec3 color;
+    vec4 normal;
+};
+
+layout(std140, binding = 0) readonly buffer VertexSSBOIn {
+   Vertex verticesIn[ ];
+};
+
+layout(local_size_x = 32) in;
+
+// Shared payload passed to all spawned mesh shader workgroups
+struct TaskPayload {
+    uint baseID;
+    uint meshletIndices[32];
+};
+taskPayloadSharedEXT TaskPayload payload;
+
+void main() {
+    uint threadID = gl_LocalInvocationID.x;
+    
+    // Example: Simple frustum culling or LOD check would go here
+    bool visible = true; 
+    
+    if (visible) {
+        payload.meshletIndices[threadID] = gl_WorkGroupID.x * 32 + threadID;
+    }
+
+    // Launch up to 32 mesh shader workgroups from this task group
+    EmitMeshTasksEXT(32, 1, 1); 
+}
