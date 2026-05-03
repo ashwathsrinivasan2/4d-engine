@@ -66,7 +66,7 @@ void Camera::moveBackward(float time){
 void Camera::moveLeft(float time){
     time *= sensitivity;
     if(fpvMode){
-        eye -= (sensitivity * rightVector);
+        eye -= (time * rightVector);
     } else {
         glm::vec4 center(0.f);
         float radius = glm::length(center - eye);

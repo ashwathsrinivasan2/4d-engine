@@ -23,7 +23,7 @@ int main(){
 
 
 
-    scene.getCamera().setMode("orbit");
+    scene.getCamera().setMode("fpv");
     scene.getCamera().setSpawn(glm::vec4(0.f, 0.f, 0.f, 0.f));
     Application app(&scene);
     app.run();

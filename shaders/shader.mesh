@@ -103,7 +103,7 @@ void main(){
     
     
     //calculate interpolated vertex for vertices on opposite sides of hyperplane
-    /*
+    
     int currIndex = 0;
     for(int i = 0; i < 3; i++){
         for(int j = i + 1; j < 4; j++){
@@ -112,20 +112,13 @@ void main(){
             currIndex = int(payload.hyperPlaneSides[i]) * int(payload.hyperPlaneSides[j]) == -1 ? currIndex + 1 : currIndex;
         }
     }
-    */
 
-    for (int i = 0; i < 3; i++) {
-        float wDist = 2.0 - payload.vertices[i].position.w;
-        vec3 pos3D = payload.vertices[i].position.xyz / wDist;
-
-        vec4 worldPos = payload.model * vec4(pos3D, 1.0) + payload.modelTranslate;
-        vec4 viewPos  = payload.view  * (worldPos + payload.viewTranslate);
-        gl_MeshVerticesEXT[i].gl_Position = payload.proj * viewPos;
-
+    for(int i = 0; i < 4; i++){
+        gl_MeshVerticesEXT[i].gl_Position = payload.proj * vec4(interpolatedVertices[i].position.xyz, 1.f);
         outNormal[i]   = payload.vertices[i].normal;
         outColor[i]    = payload.vertices[i].color;
         outTexCoord[i] = payload.vertices[i].texCoord;
-        outWorldPos[i] = vec4(pos3D, 1.0);
+        outWorldPos[i] = vec4(0.f, 0.f, 0.f, 0.f);
     }
 
     gl_PrimitiveTriangleIndicesEXT[0] = uvec3(0, 1, 2); 
