@@ -1,101 +1,100 @@
-#version 450
-#extension GL_EXT_mesh_shader : enable
+#version 460
+#extension GL_EXT_mesh_shader : require
 
-layout (std140, binding = 0) uniform ComputeUniformBufferObject {
-    float xCoefficient;
-    float yCoefficient;
-    float zCoefficient;
-    float wCoefficient;
-    float constant;
+layout(binding = 0) uniform UniformBufferObject{
+    mat4 view;
+    vec4 viewTranslate;
+
+    mat4 proj;
 } ubo;
 
-struct Vertex{
+struct InstanceData{
+    mat4 model;
+    vec4 modelTranslate;
+};
+
+struct Vertex {
     vec4 position;
-    vec3 color;
+    vec4 color;
     vec4 normal;
+    vec4 texCoord;
+    uvec4 instanceID;
 };
 
-layout(std140, binding = 1) readonly buffer VertexSSBOIn {
-   Vertex verticesIn[ ];
+struct TaskPayload{
+    vec4 hyperPlaneSides;
+    
+    mat4 model;
+    vec4 modelTranslate;
+
+    mat4 view;
+    vec4 viewTranslate;
+
+    mat4 proj;
+
+    int numTriangles;
+    Vertex vertices[4];
+    
 };
 
-layout(local_size_x = 32) in;
-
-// Shared payload passed to all spawned mesh shader workgroups
-struct TaskPayload {
-    uint baseID;
-    uint meshletIndices[32];
+layout(std430, binding = 1) readonly buffer VertexSSBO {
+   Vertex vertexData[ ];
 };
+
+layout(std430, binding = 2) readonly buffer InstanceDataSSBO {
+   InstanceData instanceData[ ];
+};
+
+layout(local_size_x = 1) in;
+
 taskPayloadSharedEXT TaskPayload payload;
 
-vec4 coefficients(ubo.xCoefficient, ubo.yCoefficient, ubo.zCoefficient, ubo.wCoefficient);
-
-Vertex getInterpolatedVertex(int firstIndex, int secondIndex){
-
-    //get vertices to interpolate between
-    HyperVertex vA = verticesIn[firstIndex];
-    HyperVertex vB = verticesIn[secondIndex];
-
-    //get vertex differences for each attribute
-    vec4 posDiff = vB.position - vA.position;
-    vec4 normalDiff = vB.normal - vA.normal;
-    vec3 colorDiff = vB.color - vA.color;
-
-    //how far on line segment to intersect
-    float interpolationFactor = (dot(coefficients, vA.position) + ubo.constant) / dot(coefficients, vA.position - vB.position);
-
-    //calculate interpolated attributes
-    vec4 interpolatedPos = vA.position + interpolationFactor * posDiff;
-    vec3 interpolatedColor = vA.color + interpolationFactor * colorDiff;
-    vec4 interpolatedNormal = vA.normal + interpolationFactor * normalDiff;
-
-    //create new 3D point from interpolated attributes
-    Vertex interpolatedPoint;
-    interpolatedPoint.position = interpolatedPos.xyz;
-    interpolatedPoint.color = interpolatedColor;
-    interpolatedPoint.normal = interpolatedNormal.xyz;
-
-    return interpolatedPoint;
+bool intersectsPlane(vec4 sides){
+    bool hasPos = sides.x > 0.0 || sides.y > 0.0 || sides.z > 0.0 || sides.w > 0.0;
+    bool hasNeg = sides.x < 0.0 || sides.y < 0.0 || sides.z < 0.0 || sides.w < 0.0;
+    return hasPos && hasNeg;
 }
 
-//returns +1 or -1 depending on side, -1 if on hyperplane
-float getHyperplaneSide(vec4 pos){
-    float val = dot(coefficients, pos) + ubo.constant;
-    float side = val != 0.f ? val / abs(val) : -1.f;
-    return side;
+int sum(vec4 sides){
+    int sum = 0;
+    for(int i = 0; i < 4; i++){
+        sum += int(sides[i]);
+    }
+
+    return sum;
 }
 
-bool isVisible(){
+
+
+void main(){
+    uint index = gl_WorkGroupID.x * gl_WorkGroupSize.x + gl_LocalInvocationID.x;
+
     //figure out which side of hyperplane each vertex is on
+    uint currInstance = vertexData[4 * index].instanceID.x;
     vec4 hyperPlaneSide;
     for(int i = 0; i < 4; i++){
-        hyperPlaneSide[i] = getHyperplaneSide(verticesIn[4 * index + i].position);
+        vec4 transformedPos = ubo.view * (instanceData[currInstance].model * vertexData[4 * index + i].position + instanceData[currInstance].modelTranslate + ubo.viewTranslate);
+        hyperPlaneSide[i] = sign(transformedPos.w);
     }
 
-    //initialize to invalid value to show vertex should not be drawn
-    for(int i = 4 * index; i < 4 * index + 4; i++){
-        verticesOut[i].color = vec3(-1.f, -1.f, -1.f);
-    }
 
-    //calculate interpolated vertex for vertices on opposite sides of hyperplane
-    for(int i = 0; i < 3; i++){
-        for(int j = i + 1; j < 4; j++){
-            verticesOut[outputIndex] = hyperPlaneSide[i] * hyperPlaneSide[j] < 0.f ? getInterpolatedVertex(4 * index + i, 4 * index + j) : verticesOut[outputIndex];
-            outputIndex = hyperPlaneSide[i] * hyperPlaneSide[j] < 0.f ? outputIndex + 1 : outputIndex;
+        for(int i = 0; i < 4; i++){
+            payload.vertices[i] = vertexData[4 * index + i];
         }
-    }
-}
 
-void main() {
-    uint threadID = gl_LocalInvocationID.x;
-    
-    // Example: Simple frustum culling or LOD check would go here
-    bool visible = true; 
-    
-    if (isVisible()) {
-        payload.meshletIndices[threadID] = gl_WorkGroupID.x * 32 + threadID;
-    }
 
-    // Launch up to 32 mesh shader workgroups from this task group
-    EmitMeshTasksEXT(32, 1, 1); 
+        payload.model = instanceData[currInstance].model;
+        payload.modelTranslate = instanceData[currInstance].modelTranslate;
+        payload.view = ubo.view;
+        payload.viewTranslate = ubo.viewTranslate;
+        payload.proj = ubo.proj;
+
+        payload.hyperPlaneSides = hyperPlaneSide;
+
+        payload.numTriangles = sum(hyperPlaneSide) == 0 ? 2 : 1;
+        payload.numTriangles = 1;
+
+        EmitMeshTasksEXT(intersectsPlane(hyperPlaneSide) ? 1 : 0, 1, 1);
+
+
 }

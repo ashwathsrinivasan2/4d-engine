@@ -1,6 +1,5 @@
 #include "Renderer.h"
 #include "Scene.h"
-#include "Entity.h"
 
 #include <cstdlib> 
 #include <ctime>
@@ -25,16 +24,22 @@ Renderer::~Renderer(){
         vkFreeMemory(logicalDevice, uniformBuffersMemory[i], nullptr);
     }
 
-    std::vector<Entity> entities = scene->getEntities();
-    for(Entity entity : entities){
-        entity.destroyBuffers();
-    }
+    vkDestroyBuffer(logicalDevice, vertexSSBO, nullptr);
+    vkFreeMemory(logicalDevice, vertexSSBOMemory, nullptr);
+    vkDestroyBuffer(logicalDevice, instanceSSBO, nullptr);
+    vkFreeMemory(logicalDevice, instanceSSBOMemory, nullptr);
+
 
     for(unsigned long long i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
         vkDestroySemaphore(logicalDevice, imageAvailableSemaphores[i], nullptr);
         vkDestroyFence(logicalDevice, inFlightFences[i], nullptr);
+    }
+
+    for (unsigned long long i = 0; i < swapchainSize; i++) {
         vkDestroySemaphore(logicalDevice, renderFinishedSemaphores[i], nullptr);
     }
+
+
 
     vkDestroyCommandPool(logicalDevice, transferCommandPool, nullptr);
     vkDestroyCommandPool(logicalDevice, graphicsCommandPool, nullptr);
@@ -66,6 +71,21 @@ VkResult Renderer::createDebugUtilMessengerEXT(VkInstance instance,
     }
 }
 
+
+void Renderer::vkCmdDrawMeshTasksEXT(VkCommandBuffer cmdBuffer, int x, int y, int z) {
+
+    //getInstanceProc gets a function from one of the extensions
+    //PFN... casts it to a c++ style function pointer specifically built for this function (argument count and types)
+    //func(...) then calls that function if it is found in the extensions
+    //this allows you to call the function even though it is not included in Vulkan's core api
+    auto func = (PFN_vkCmdDrawMeshTasksEXT)vkGetDeviceProcAddr(logicalDevice, "vkCmdDrawMeshTasksEXT");
+    if (func != nullptr) {
+        func(cmdBuffer, x, y, z);
+    }
+    else {
+        throw std::runtime_error("Failed to load vkCmdDrawMeshTasksEXT");
+    }
+}
 //deallocates a debug messenger object
 void Renderer::destroyDebugUtilMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks *pAllocator){
     auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
@@ -108,9 +128,6 @@ const std::vector<const char*> Renderer::getRequiredExtensions(){
 
     std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
 
-    //needed for macOS
-    extensions.push_back(VK_MVK_MACOS_SURFACE_EXTENSION_NAME); //allows you to connect Vulkan with Metal
-    extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME); //allows enumeration of physical devices that don't directly interface with Vulkan
     extensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME); //more detailed physical device info
 
     if(enableValidationLayers){
@@ -447,8 +464,8 @@ void Renderer::createImage(uint32_t width, uint32_t height, VkFormat format, VkI
     vkBindImageMemory(logicalDevice, image, imageMemory, 0);
 }
 
-void Renderer::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
-    VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+void Renderer::transitionImageLayout(VkCommandBuffer commandBuffer, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
+
 
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -518,7 +535,6 @@ void Renderer::transitionImageLayout(VkImage image, VkFormat format, VkImageLayo
         1, &barrier
     );
 
-    endSingleTimeCommands(commandBuffer);
 }
 
 VkImageView Renderer::createImageView(VkImage image, VkFormat format, VkImageAspectFlagBits aspectFlags) {
@@ -632,8 +648,17 @@ void Renderer::createInstance(){
     createInfo.enabledExtensionCount = static_cast<unsigned int> (extensions.size());
     createInfo.ppEnabledExtensionNames = extensions.data();
 
-    //needed for macOS
-    createInfo.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+    VkValidationFeaturesEXT validationFeatures{};
+    validationFeatures.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT;
+
+    VkValidationFeatureEnableEXT enables[] = {
+        VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT
+    };
+    validationFeatures.enabledValidationFeatureCount = 1;
+    validationFeatures.pEnabledValidationFeatures = enables;
+
+    // chain into your instance create info
+    createInfo.pNext = &validationFeatures;
 
     VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo;
     if(enableValidationLayers){ //meant for specific debug logs
@@ -641,11 +666,12 @@ void Renderer::createInstance(){
         createInfo.ppEnabledLayerNames = validationLayers.data();
 
         populateDebugMessengerCreateInfo(debugCreateInfo);
-        createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT *)&debugCreateInfo;
+        validationFeatures.pNext = (VkDebugUtilsMessengerCreateInfoEXT *)&debugCreateInfo;
     } else {
         createInfo.enabledLayerCount = 0;
-        createInfo.pNext = nullptr;
+        validationFeatures.pNext = nullptr;
     }
+
 
     if(vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS){
         throw std::runtime_error("Failed to create Vulkan Instance");
@@ -716,9 +742,15 @@ void Renderer::createLogicalDevice(){
     dynamicRenderingFeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR;
     dynamicRenderingFeature.dynamicRendering = VK_TRUE;
 
+    VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures{};
+    meshShaderFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
+    meshShaderFeatures.meshShader = VK_TRUE;
+    meshShaderFeatures.taskShader = VK_TRUE;
+    meshShaderFeatures.pNext = &dynamicRenderingFeature;
+
     VkDeviceCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    createInfo.pNext = &dynamicRenderingFeature;
+    createInfo.pNext = &meshShaderFeatures;
 
     //add queues
     createInfo.queueCreateInfoCount = static_cast<unsigned int>(queueCreateInfos.size());
@@ -816,9 +848,12 @@ void Renderer::createImageViews(){
 }
 
 void Renderer::createShaderModules(){
-    std::vector<char> vertShaderCode = readFile(vertexShaderFilename);
+    std::vector<char> taskShaderCode = readFile(taskShaderFilename);
+    std::vector<char> meshShaderCode = readFile(meshShaderFilename);
     std::vector<char> fragShaderCode = readFile(fragShaderFilename);
-    vertShaderModule = createShaderModule(vertShaderCode);
+
+    taskShaderModule = createShaderModule(taskShaderCode);
+    meshShaderModule = createShaderModule(meshShaderCode);
     fragShaderModule = createShaderModule(fragShaderCode);
 }
 
@@ -858,18 +893,76 @@ void Renderer::createUniformBuffers(){
     }
 }
 
+void Renderer::createShaderStorageBufferObjects() {
+
+    VkDeviceSize bufferSize = scene->getVertexBufferSize();
+
+    if (bufferSize == 0) {
+        throw std::runtime_error("No vertex data available.");
+    }
+
+    VkBuffer vertexStagingBuffer;
+    VkDeviceMemory vertexStagingBufferMemory;
+    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, vertexStagingBuffer, vertexStagingBufferMemory);
+
+    void* data;
+    vkMapMemory(logicalDevice, vertexStagingBufferMemory, 0, bufferSize, 0, &data);
+    memcpy(data, scene->getVertexData().data(), (size_t)bufferSize);
+    vkUnmapMemory(logicalDevice, vertexStagingBufferMemory);
+
+    createBuffer(bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexSSBO, vertexSSBOMemory);
+    copyBuffer(vertexStagingBuffer, vertexSSBO, bufferSize);
+
+    vkDestroyBuffer(logicalDevice, vertexStagingBuffer, nullptr);
+    vkFreeMemory(logicalDevice, vertexStagingBufferMemory, nullptr);
+
+    bufferSize = scene->getInstanceBufferSize();
+
+    if (bufferSize == 0) {
+        throw std::runtime_error("No instance data available.");
+    }
+
+    VkBuffer instanceStagingBuffer;
+    VkDeviceMemory instanceStagingBufferMemory;
+    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, instanceStagingBuffer, instanceStagingBufferMemory);
+
+    vkMapMemory(logicalDevice, instanceStagingBufferMemory, 0, bufferSize, 0, &data);
+    memcpy(data, scene->getInstanceData().data(), (size_t)bufferSize);
+    vkUnmapMemory(logicalDevice, instanceStagingBufferMemory);
+
+    createBuffer(bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, instanceSSBO, instanceSSBOMemory);
+    copyBuffer(instanceStagingBuffer, instanceSSBO, bufferSize);
+
+    vkDestroyBuffer(logicalDevice, instanceStagingBuffer, nullptr);
+    vkFreeMemory(logicalDevice, instanceStagingBufferMemory, nullptr);
+}
+
 void Renderer::createDescriptorSetLayout(){
-    VkDescriptorSetLayoutBinding uboLayoutBinding{};
-    uboLayoutBinding.binding = 0;                                           //binding location in shader
-    uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    uboLayoutBinding.descriptorCount = 1;                                   //could be an array of ubos
-    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;               //which shaders will use this ubo
-    uboLayoutBinding.pImmutableSamplers = nullptr;
+
+    std::array<VkDescriptorSetLayoutBinding, 3> layoutBindings{};
+
+    layoutBindings[0].binding = 0;                                           //binding location in shader
+    layoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    layoutBindings[0].descriptorCount = 1;                                   //could be an array of ubos
+    layoutBindings[0].stageFlags = VK_SHADER_STAGE_TASK_BIT_EXT;               //which shaders will use this ubo
+    layoutBindings[0].pImmutableSamplers = nullptr;
+
+    layoutBindings[1].binding = 1;                                           //binding location in shader
+    layoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    layoutBindings[1].descriptorCount = 1;                                   //could be an array of ubos
+    layoutBindings[1].stageFlags = VK_SHADER_STAGE_TASK_BIT_EXT;               //which shaders will use this ubo
+    layoutBindings[1].pImmutableSamplers = nullptr;
+
+    layoutBindings[2].binding = 2;                                           //binding location in shader
+    layoutBindings[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    layoutBindings[2].descriptorCount = 1;                                   //could be an array of ubos
+    layoutBindings[2].stageFlags = VK_SHADER_STAGE_TASK_BIT_EXT;               //which shaders will use this ubo
+    layoutBindings[2].pImmutableSamplers = nullptr;
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = 1;
-    layoutInfo.pBindings = &uboLayoutBinding;
+    layoutInfo.bindingCount = 3;
+    layoutInfo.pBindings = layoutBindings.data();
 
     if(vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS){
         throw std::runtime_error("Failed to create descriptor set layout");
@@ -879,15 +972,18 @@ void Renderer::createDescriptorSetLayout(){
 void Renderer::createDescriptorPool(){
     //can have multiple pool sizes, one for each type of descriptor
     //used to find out how much total memory will be needed for the pool for all descriptors
-    VkDescriptorPoolSize poolSize{};
-    poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+    std::array<VkDescriptorPoolSize, 2> poolSizes{};
+    poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+
+    poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSizes[1].descriptorCount = 2 * static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
     //creates the descriptor pool with all the specified pool sizes.
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.poolSizeCount = 1;
-    poolInfo.pPoolSizes = &poolSize;
+    poolInfo.poolSizeCount = 2;
+    poolInfo.pPoolSizes = poolSizes.data();
     poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT); //need this because each descriptor set comes with its own memory needs outside of its contents
     
     if(vkCreateDescriptorPool(logicalDevice, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS){
@@ -897,6 +993,7 @@ void Renderer::createDescriptorPool(){
 
 void Renderer::createDescriptorSets(){
     std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, descriptorSetLayout);
+
     VkDescriptorSetAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     allocInfo.descriptorPool = descriptorPool;
@@ -909,32 +1006,71 @@ void Renderer::createDescriptorSets(){
     }
 
     for(size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
+
+        std::array<VkWriteDescriptorSet, 3> descriptorWrites{};
+
         VkDescriptorBufferInfo bufferInfo{};
         bufferInfo.buffer = uniformBuffers[i];
         bufferInfo.offset = 0;
         bufferInfo.range = sizeof(UniformBufferObject);
 
-        VkWriteDescriptorSet descriptorWrite{};
-        descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrite.dstSet = descriptorSets[i];
-        descriptorWrite.dstBinding = 0;
-        descriptorWrite.dstArrayElement = 0;
-        descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        descriptorWrite.descriptorCount = 1;
-        descriptorWrite.pBufferInfo = &bufferInfo;
-        descriptorWrite.pImageInfo = nullptr;
-        descriptorWrite.pTexelBufferView = nullptr;
+        descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[0].dstSet = descriptorSets[i];
+        descriptorWrites[0].dstBinding = 0;
+        descriptorWrites[0].dstArrayElement = 0;
+        descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWrites[0].descriptorCount = 1;
+        descriptorWrites[0].pBufferInfo = &bufferInfo;
+        descriptorWrites[0].pImageInfo = nullptr;
+        descriptorWrites[0].pTexelBufferView = nullptr;
 
-        vkUpdateDescriptorSets(logicalDevice, 1, &descriptorWrite, 0, nullptr);
+        VkDescriptorBufferInfo vertexSSBOInfo{};
+        vertexSSBOInfo.buffer = vertexSSBO;
+        vertexSSBOInfo.offset = 0;
+        vertexSSBOInfo.range = scene->getVertexBufferSize();
+
+        descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[1].dstSet = descriptorSets[i];
+        descriptorWrites[1].dstBinding = 1;
+        descriptorWrites[1].dstArrayElement = 0;
+        descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[1].descriptorCount = 1;
+        descriptorWrites[1].pBufferInfo = &vertexSSBOInfo;
+        descriptorWrites[1].pImageInfo = nullptr;
+        descriptorWrites[1].pTexelBufferView = nullptr;
+
+        VkDescriptorBufferInfo instanceSSBOInfo{};
+        instanceSSBOInfo.buffer = instanceSSBO;
+        instanceSSBOInfo.offset = 0;
+        instanceSSBOInfo.range = scene->getInstanceBufferSize();
+
+        descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[2].dstSet = descriptorSets[i];
+        descriptorWrites[2].dstBinding = 2;
+        descriptorWrites[2].dstArrayElement = 0;
+        descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[2].descriptorCount = 1;
+        descriptorWrites[2].pBufferInfo = &instanceSSBOInfo;
+        descriptorWrites[2].pImageInfo = nullptr;
+        descriptorWrites[2].pTexelBufferView = nullptr;
+
+        vkUpdateDescriptorSets(logicalDevice, 3, descriptorWrites.data(), 0, nullptr);
+
     }
 }
 
 void Renderer::createPipeline(){
-    VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
-    vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    vertShaderStageInfo.module = vertShaderModule;
-    vertShaderStageInfo.pName = "main";
+    VkPipelineShaderStageCreateInfo taskShaderStageInfo{};
+    taskShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    taskShaderStageInfo.stage = VK_SHADER_STAGE_TASK_BIT_EXT;
+    taskShaderStageInfo.module = taskShaderModule;
+    taskShaderStageInfo.pName = "main";
+
+    VkPipelineShaderStageCreateInfo meshShaderStageInfo{};
+    meshShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    meshShaderStageInfo.stage = VK_SHADER_STAGE_MESH_BIT_EXT;
+    meshShaderStageInfo.module = meshShaderModule;
+    meshShaderStageInfo.pName = "main";
 
     VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
     fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -942,26 +1078,7 @@ void Renderer::createPipeline(){
     fragShaderStageInfo.module = fragShaderModule;
     fragShaderStageInfo.pName = "main";
 
-    VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
-
-    VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
-    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexInputInfo.vertexBindingDescriptionCount = 0;
-    vertexInputInfo.vertexAttributeDescriptionCount = 0;
-
-    auto bindingDescription = Vertex::getBindingDescription();
-    auto attributeDescription = Vertex::getAttributeDescription();
-
-    vertexInputInfo.vertexBindingDescriptionCount = 1;
-    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<unsigned int> (attributeDescription.size());
-    vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
-    vertexInputInfo.pVertexAttributeDescriptions = attributeDescription.data();
-
-    //should draw points as triangles
-    VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
-    inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST; 
-    inputAssembly.primitiveRestartEnable = VK_FALSE; //would allow you to split indices in ibo into many separate ones
+    VkPipelineShaderStageCreateInfo shaderStages[] = {taskShaderStageInfo, meshShaderStageInfo, fragShaderStageInfo};
 
     //map between pixels and normalized coordinates
     VkViewport viewport{};
@@ -1039,17 +1156,10 @@ void Renderer::createPipeline(){
     depthStencil.front = {}; // Optional
     depthStencil.back = {}; // Optional
 
-    VkPushConstantRange pushConstantRange{};
-    pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-    pushConstantRange.offset = 0;
-    pushConstantRange.size = sizeof(PushConstantData);
-
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount = 1;
     pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
-    pipelineLayoutInfo.pushConstantRangeCount = 1;
-    pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
 
     if(vkCreatePipelineLayout(logicalDevice, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS){
         throw std::runtime_error("Failed to create pipeline layout");
@@ -1059,10 +1169,8 @@ void Renderer::createPipeline(){
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     pipelineInfo.pNext = &renderingInfo;
     pipelineInfo.pDepthStencilState = &depthStencil;
-    pipelineInfo.stageCount = 2;
+    pipelineInfo.stageCount = 3;
     pipelineInfo.pStages = shaderStages;
-    pipelineInfo.pVertexInputState = &vertexInputInfo;
-    pipelineInfo.pInputAssemblyState = &inputAssembly;
     pipelineInfo.pViewportState = &viewportState;
     pipelineInfo.pRasterizationState = &rasterizer;
     pipelineInfo.pMultisampleState = &multisampling;
@@ -1076,7 +1184,8 @@ void Renderer::createPipeline(){
         throw std::runtime_error("Failed to create graphics pipeline.");
     }
 
-    vkDestroyShaderModule(logicalDevice, vertShaderModule, nullptr);
+    vkDestroyShaderModule(logicalDevice, taskShaderModule, nullptr);
+    vkDestroyShaderModule(logicalDevice, meshShaderModule, nullptr);
     vkDestroyShaderModule(logicalDevice, fragShaderModule, nullptr);
 }
 
@@ -1095,7 +1204,7 @@ void Renderer::createCommandBuffers(){
 
 void Renderer::createSyncObjects(){
     imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-    renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+    renderFinishedSemaphores.resize(swapchainImages.size());
     inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
 
     VkSemaphoreCreateInfo semaphoreInfo{};
@@ -1107,8 +1216,13 @@ void Renderer::createSyncObjects(){
 
     for(unsigned long long i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
         if(vkCreateSemaphore(logicalDevice, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) != VK_SUCCESS ||
-        vkCreateFence(logicalDevice, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS ||
-        vkCreateSemaphore(logicalDevice, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS){
+        vkCreateFence(logicalDevice, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS){
+            throw std::runtime_error("Failed to create synchronization objects for a frame");
+        }
+    }
+
+    for (int i = 0; i < swapchainImages.size(); i++) {
+        if (vkCreateSemaphore(logicalDevice, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS) {
             throw std::runtime_error("Failed to create synchronization objects for a frame");
         }
     }
@@ -1123,7 +1237,9 @@ void Renderer::createDepthResources(){
     for(int i = 0; i < swapchainImages.size(); i++){
         createImage(swapchainExtent.width, swapchainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImages[i], depthImagesMemory[i]);
         depthImageViews[i] = createImageView(depthImages[i], depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
-        transitionImageLayout(depthImages[i], depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+        VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+        transitionImageLayout(commandBuffer, depthImages[i], depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+        endSingleTimeCommands(commandBuffer);
     }
 }
 
@@ -1135,8 +1251,8 @@ void Renderer::recordCommandBuffers(int i){
         throw std::runtime_error("Failed to begin recording command buffer");
     }
 
-    transitionImageLayout(swapchainImages[i], swapchainImageFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    transitionImageLayout(depthImages[i], depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+    transitionImageLayout(commandBuffers[i], swapchainImages[i], swapchainImageFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    transitionImageLayout(commandBuffers[i], depthImages[i], depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
     VkRenderingAttachmentInfoKHR colorAttachmentInfo{};
     colorAttachmentInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
@@ -1166,22 +1282,13 @@ void Renderer::recordCommandBuffers(int i){
 
     vkCmdBeginRendering(commandBuffers[i], &renderInfo);
     vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-    std::vector<Entity> entities = scene->getEntities();
     
     VkDeviceSize offsets[] = {0};
 
     vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
-    
-    for(int j = 0; j < entities.size(); j++){
-        VkBuffer vertexBuffers[] = {entities[j].getVertexBuffer().getBuffer()};
-        vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
-        vkCmdBindIndexBuffer(commandBuffers[i], entities[j].getIndexBuffer().getBuffer(), 0, VK_INDEX_TYPE_UINT16);
-        push.modelMat = entities[j].getModelMatrix();
-        vkCmdPushConstants(commandBuffers[i], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstantData), &push);
-        vkCmdDrawIndexed(commandBuffers[i], entities[j].getNumVertices(), 1, 0, 0, 0);
-    }
+    vkCmdDrawMeshTasksEXT(commandBuffers[i], 40, 1, 1);
     vkCmdEndRendering(commandBuffers[i]);
-    transitionImageLayout(swapchainImages[i], swapchainImageFormat, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+    transitionImageLayout(commandBuffers[i], swapchainImages[i], swapchainImageFormat, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
     if(vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS){
         throw std::runtime_error("Failed to record command buffer");
@@ -1192,6 +1299,9 @@ void Renderer::updateUniformBuffer(uint32_t currentImage){
 
     UniformBufferObject ubo{};
     ubo.view = scene->getCamera().getViewMatrix();
+    ubo.viewTranslate = -scene->getCamera().getPosition();
+    //glm::vec4 viewTranslate = -scene->getCamera().getPosition();
+    //std::cout << "viewTranslate: " << viewTranslate.x << " " << viewTranslate.y << " " << viewTranslate.z << " " << viewTranslate.w << std::endl;
     ubo.proj = glm::perspective(glm::radians(45.0f), swapchainExtent.width / (float) swapchainExtent.height, 0.1f, 100.f);
     ubo.proj[1][1] *= -1;
 
@@ -1236,14 +1346,17 @@ void Renderer::drawFrame(){
     submitInfo.pCommandBuffers = &commandBuffers[imageIndex];
 
     //once finished, signal renderFinishedSemaphores to allow for presenting
-    VkSemaphore signalSemaphores[] = {renderFinishedSemaphores[currentFrame]};
+    VkSemaphore signalSemaphores[] = {renderFinishedSemaphores[imageIndex]};
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
     vkResetFences(logicalDevice, 1, &inFlightFences[currentFrame]);
     //submits pCommandBuffers to graphics queue
     //will signal/unblock current fence when command buffers complete
-    if(vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS){
+
+    VkResult submitResult = vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]);
+    if(submitResult != VK_SUCCESS){
+        std::cout << "vkQueueSubmit result: " << submitResult << std::endl;
         throw std::runtime_error("Failed to submit draw command buffer");
     }
 
@@ -1293,6 +1406,7 @@ void Renderer::initialize(GLFWwindow* window, Scene* scene){
     createDepthResources();
 
     createUniformBuffers();
+    createShaderStorageBufferObjects();
 
     createDescriptorSetLayout();
     createDescriptorPool();

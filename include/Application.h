@@ -28,6 +28,8 @@ class Application{
     int keyA;
     int keyS;
     int keyD;
+    int keyQ;
+    int keyE;
 
     public:
 

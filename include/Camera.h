@@ -8,11 +8,13 @@
 class Camera{
 
     private:
-    glm::vec3 eye;
-    glm::vec3 viewVector;
-    glm::vec3 upVector;
+    glm::vec4 eye;
+    glm::vec4 viewVector;
+    glm::vec4 rightVector;
+    glm::vec4 upVector;
+    glm::vec4 anaVector;
     glm::vec2 lastMousePos;
-    glm::vec3 spawn = glm::vec3(0.f);
+    glm::vec4 spawn = glm::vec4(0.f);
     float fov;
     float sensitivity;
 
@@ -26,17 +28,15 @@ class Camera{
 
 
     float currYaw = 0.0f;
-
-    glm::vec3 rightVector();
     
     public:
     Camera();
     glm::mat4 getViewMatrix();
     float getFOV();
-    glm::vec3 getPosition();
-    glm::vec3 getViewVector();
-    void setSpawn(glm::vec3 origin){eye = origin; spawn = origin;}
-    glm::vec3 getSpawn(){return spawn;}
+    glm::vec4 getPosition();
+    glm::vec4 getViewVector();
+    void setSpawn(glm::vec4 origin){eye = origin; spawn = origin;}
+    glm::vec4 getSpawn(){return spawn;}
 
     void setMode(std::string);
     
@@ -44,11 +44,12 @@ class Camera{
     void moveBackward(float);
     void moveLeft(float);
     void moveRight(float);
+    void moveAna(float);
+    void moveKata(float);
+
     void zoom(float);
     void setSensitivity(float);
     void reset();
-
-    void mouseLook(int, int);
 };
 
 #endif

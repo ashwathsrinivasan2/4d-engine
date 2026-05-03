@@ -4,41 +4,86 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_macos.h>
 
-#include "Entity.h"
+#include "Rotor.h"
 #include "Camera.h"
 #include <vector>
+#include <iostream>
 
 class Scene{
-    std::vector<Entity> entities;
+
+    struct Vertex{
+        glm::vec4 pos;
+        glm::vec4 color;
+        glm::vec4 normal;
+        glm::vec4 texCoord;
+        glm::uvec4 instanceID = glm::uvec4(0, 0, 0, 0);
+        
+        Vertex(glm::vec4 pos, glm::vec3 color, glm::vec4 normal, glm::vec3 texCoord)
+            : pos(pos), color(glm::vec4(color, 1.f)), normal(normal), texCoord(glm::vec4(texCoord, 1.f)) {
+        };
+    };
+
+    struct Instance {
+        glm::vec4 currTranslate = glm::vec4(0.f);
+        glm::vec4 currScale = glm::vec4(1.f);
+        Rotor currRotation;
+    };
+
+    struct ConvertedInstance {
+        glm::mat4 model;
+        glm::vec4 modelTranslate;
+    };
+
+    std::vector<Vertex> vertices;
+    std::vector<Instance> instances;
+
     Camera cam;
 
-    //for buffer creation
-    VkCommandPool cmdPool;
-    VkQueue queue;
-    VkDevice logicalDevice;
-    VkPhysicalDevice physicalDevice;
+    std::vector<ConvertedInstance> convertInstances();
 
-    struct HyperVertex{
-        glm::vec4 pos;
-        glm::vec3 color;
-        glm::vec4 normal;
-    };
+    void printVec(std::string name, glm::vec4 vec) {
+        std::cout << name << ": {";
+        for (int i = 0; i < 4; i++) {
+            std::cout << vec[i];
+            if (i != 4) std::cout << " ";
+        }
+        std::cout << "}";
+    }
 
     public:
     Scene();
-    void initialize(VkCommandPool&, VkQueue&, VkDevice&, VkPhysicalDevice&);
-    int createEntity(std::vector<Vertex>, std::vector<uint16_t>);
-    std::vector<Entity>& getEntities(){return entities;}
+    int createEntity(std::vector<Vertex>);
+
+    size_t getVertexBufferSize() { return sizeof(Vertex) * vertices.size(); }
+    size_t getInstanceBufferSize() { return sizeof(ConvertedInstance) * instances.size(); }
+
+    std::vector<Vertex> getVertexData() {
+        for (int i = 0; i < vertices.size(); i++) {
+            printVec("pos", vertices[i].pos);
+            std::cout << ", ";
+            printVec("color", vertices[i].color);
+            std::cout << ", ";
+            printVec("normal", vertices[i].normal);
+            std::cout << ", ";
+            printVec("texCoord", vertices[i].texCoord);
+            std::cout << ", id: " << vertices[i].instanceID.x;
+            std::cout << std::endl;
+        }
+        return vertices; }
+    std::vector<ConvertedInstance> getInstanceData() { return convertInstances(); }
     Camera& getCamera(){return cam;}
 
-    void translate(int entityIndex, glm::vec3 translation) {entities[entityIndex].translate(translation);}
-    void scale(int entityIndex, glm::vec3 scaleVec) {entities[entityIndex].scale(scaleVec);}
-    void rotate(int entityIndex, glm::vec3 axis, float radians) {entities[entityIndex].rotate(axis, radians);}
+    
+    void translate(int, glm::vec4);
+    void scale(int , glm::vec4);
+    void rotate(int, int, int, int, int, float);
+    
 
     //Entity Factory Functions
-    int Cube(glm::vec3);
-    int Cylinder(glm::vec3);
-    int Sphere(glm::vec3);
+    //int Cube(glm::vec3);
+    //int Cylinder(glm::vec3);
+    //int Sphere(glm::vec3);
+
     int Tesseract(glm::vec3);
 };
 

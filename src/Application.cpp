@@ -4,7 +4,6 @@ Application::Application(Scene* scene){
     this->scene = scene;
     createWindow();
     renderer.initialize(window, scene);
-    scene->initialize(renderer.getCommandPool(), renderer.getTransferQueue(), renderer.getLogicalDevice(), renderer.getPhysicalDevice());
 }
 
 Application::~Application(){
@@ -50,6 +49,8 @@ void Application::handleInput(float time){
     keyA = glfwGetKey(window, GLFW_KEY_A);
     keyS = glfwGetKey(window, GLFW_KEY_S);
     keyD = glfwGetKey(window, GLFW_KEY_D);
+    keyQ = glfwGetKey(window, GLFW_KEY_Q);
+    keyE = glfwGetKey(window, GLFW_KEY_E);
 
     if(keyW == GLFW_PRESS){
         scene->getCamera().moveForward(time);
@@ -63,4 +64,11 @@ void Application::handleInput(float time){
     if(keyD == GLFW_PRESS){
         scene->getCamera().moveRight(time);
     }
+    if (keyQ == GLFW_PRESS) {
+        scene->getCamera().moveKata(time);
+    }
+    if (keyE == GLFW_PRESS) {
+        scene->getCamera().moveAna(time);
+    }
+
 }

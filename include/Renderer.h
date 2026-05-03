@@ -20,7 +20,7 @@
 #include <fstream>
 #include <array>
 #include <chrono>
-
+            
 #include "Scene.h"
 
 class Renderer{
@@ -36,7 +36,7 @@ class Renderer{
     {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
         VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
-        "VK_KHR_portability_subset"
+        "VK_EXT_mesh_shader"
     };
 
     #ifdef NDEBUG
@@ -67,11 +67,13 @@ class Renderer{
 
     struct UniformBufferObject{
         glm::mat4 view;
+        glm::vec4 viewTranslate;
         glm::mat4 proj;
     };
 
-    struct PushConstantData{
-        glm::mat4 modelMat;
+    struct InstanceData {
+        glm::mat4 model;
+        glm::vec4 modelTranslate;
     };
 
     bool                            framebufferResized          = false;
@@ -99,9 +101,11 @@ class Renderer{
     std::vector<VkDeviceMemory>     depthImagesMemory;
     std::vector<VkImageView>        depthImageViews;
 
-    std::string                     vertexShaderFilename        = "/Users/ashwaths/Desktop/VS Projects/4DEngine/shaders/vert.spv";
-    VkShaderModule                  vertShaderModule;
-    std::string                     fragShaderFilename          = "/Users/ashwaths/Desktop/VS Projects/4DEngine/shaders/frag.spv";
+    std::string                     taskShaderFilename          = "shaders/task.spv";
+    VkShaderModule                  taskShaderModule;
+    std::string                     meshShaderFilename          = "shaders/mesh.spv";
+    VkShaderModule                  meshShaderModule;
+    std::string                     fragShaderFilename          = "shaders/frag.spv";
     VkShaderModule                  fragShaderModule;
 
 
@@ -112,7 +116,10 @@ class Renderer{
     std::vector<VkDeviceMemory>     uniformBuffersMemory;
     std::vector<void*>              uniformBuffersMapped;
 
-    PushConstantData                push;
+    VkBuffer                        vertexSSBO;
+    VkDeviceMemory                  vertexSSBOMemory;
+    VkBuffer                        instanceSSBO;
+    VkDeviceMemory                  instanceSSBOMemory;
 
     VkDescriptorSetLayout           descriptorSetLayout;
     VkDescriptorPool                descriptorPool;
@@ -132,6 +139,8 @@ class Renderer{
 
     VkResult createDebugUtilMessengerEXT(VkInstance, const VkDebugUtilsMessengerCreateInfoEXT*, const VkAllocationCallbacks*, VkDebugUtilsMessengerEXT*);
     void destroyDebugUtilMessengerEXT(VkInstance, VkDebugUtilsMessengerEXT, const VkAllocationCallbacks*);
+
+    void vkCmdDrawMeshTasksEXT(VkCommandBuffer, int, int, int);
 
     //instance helpers
     bool checkValidationLayerSupport();
@@ -162,11 +171,27 @@ class Renderer{
     unsigned int findMemoryType(unsigned int, VkMemoryPropertyFlags);
 
     VkImageView createImageView(VkImage, VkFormat, VkImageAspectFlagBits);
-    void transitionImageLayout(VkImage, VkFormat, VkImageLayout, VkImageLayout);
+    void transitionImageLayout(VkCommandBuffer, VkImage, VkFormat, VkImageLayout, VkImageLayout);
     void createImage(uint32_t, uint32_t, VkFormat, VkImageTiling, VkImageUsageFlags, VkMemoryPropertyFlags, VkImage&, VkDeviceMemory&);
 
     VkCommandBuffer beginSingleTimeCommands();
     void endSingleTimeCommands(VkCommandBuffer);
+
+    template<typename T>
+    void createSSBO(size_t size, std::vector<T> sentData, VkBuffer buffer, VkDeviceMemory bufferMemory) {
+        VkDeviceSize bufferSize = size;
+
+        VkBuffer stagingBuffer;
+        VkDeviceMemory stagingBufferMemory;
+        createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+        void* data;
+        vkMapMemory(logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
+        memcpy(data, sentData.data(), (size_t)bufferSize);
+        vkUnmapMemory(logicalDevice, stagingBufferMemory);
+
+        createBuffer(bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, buffer, bufferMemory);
+    }
 
     //clean up
     void cleanUpSwapchain();
@@ -183,6 +208,7 @@ class Renderer{
     void createImageViews();
     void createShaderModules();
     void createCommandPools();
+    void createShaderStorageBufferObjects();
     void createUniformBuffers();
     void createDescriptorSetLayout();
     void createDescriptorPool();
