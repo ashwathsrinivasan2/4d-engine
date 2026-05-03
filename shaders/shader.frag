@@ -12,18 +12,17 @@ vec4 lightPos = vec4(2.f, 2.f, 2.f, 2.f);
 vec3 ambient = vec3(0.1f, 0.1f, 0.1f);
 
 void main(){
-/*
     vec4 lightDirection = normalize(worldPos - lightPos);
     float distance = length(worldPos - lightPos);
-    float dotProduct = dot(lightDirection, -worldNormal);
+    float dotProduct = dot(lightDirection, -normalize(worldNormal));
     dotProduct = dotProduct < 0.f ? 0.f : dotProduct;
     distance = distance < 1.f ? 1.f : distance;
     float intensity = 10.f * dotProduct / (distance * distance);
 
-    outColor = vec4(fragColor * intensity + fragColor * ambient, 1.f);
+    outColor = vec4(fragColor.rgb * intensity + fragColor.rgb * ambient, 1.f);
     clamp(outColor, 0.f, 1.f);
-    */
-    outColor = fragColor;
+ 
+    //outColor = fragColor;
 
 }
 

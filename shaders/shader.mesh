@@ -36,15 +36,17 @@ layout(location = 1) out vec4 outNormal[];
 layout(location = 2) out vec4 outTexCoord[];
 layout(location = 3) out vec4 outWorldPos[];
 
-Vertex getInterpolatedVertex(int firstIndex, int secondIndex){
+Vertex getInterpolatedVertex(int firstIndex, int secondIndex, out vec4 worldPos){
 
     //get vertices to interpolate between
     Vertex vA = payload.vertices[firstIndex];
     Vertex vB = payload.vertices[secondIndex];
 
-    vec4 aPos = payload.view * (payload.model * vA.position + payload.modelTranslate + payload.viewTranslate);
-    vec4 bPos = payload.view * (payload.model * vB.position + payload.modelTranslate + payload.viewTranslate);
+    vec4 aWorld = payload.model * vA.position + payload.modelTranslate;
+    vec4 bWorld = payload.model * vB.position + payload.modelTranslate;
 
+    vec4 aPos = payload.view * (aWorld + payload.viewTranslate);
+    vec4 bPos = payload.view * (bWorld + payload.viewTranslate);
 
 
     //get vertex differences for each attribute
@@ -52,6 +54,7 @@ Vertex getInterpolatedVertex(int firstIndex, int secondIndex){
     vec4 normalDiff = vB.normal - vA.normal;
     vec4 colorDiff = vB.color - vA.color;
     vec4 texDiff = vB.texCoord - vA.texCoord;
+    vec4 worldDiff = bWorld - aWorld;
 
     //how far on line segment to intersect
     float interpolationFactor = -aPos.w / posDiff.w;
@@ -61,6 +64,7 @@ Vertex getInterpolatedVertex(int firstIndex, int secondIndex){
     vec4 interpolatedColor = vec4((vA.color + interpolationFactor * colorDiff).xyz, 1.f);
     vec4 interpolatedNormal = vA.normal + interpolationFactor * normalDiff;
     vec4 interpolatedTexCoord = (vA.texCoord + interpolationFactor * texDiff);
+    worldPos = aWorld + interpolationFactor * worldDiff;
 
     //create new 3D point from interpolated attributes
     Vertex interpolatedPoint;
@@ -92,6 +96,7 @@ uvec3 getSecondTriangleIndices(Vertex interpolatedVertices[4]){
 void main(){
 
     Vertex interpolatedVertices[4];
+    vec4 worldPositions[4];
     SetMeshOutputsEXT(payload.numTriangles + 2, payload.numTriangles);
     
     
@@ -101,7 +106,7 @@ void main(){
     for(int i = 0; i < 3; i++){
         for(int j = i + 1; j < 4; j++){
             currIndex = currIndex >= 4 ? 3 : currIndex;
-            interpolatedVertices[currIndex] = int(payload.hyperPlaneSides[i]) * int(payload.hyperPlaneSides[j]) == -1 ? getInterpolatedVertex(i, j) : interpolatedVertices[currIndex];
+            interpolatedVertices[currIndex] = int(payload.hyperPlaneSides[i]) * int(payload.hyperPlaneSides[j]) == -1 ? getInterpolatedVertex(i, j, worldPositions[currIndex]) : interpolatedVertices[currIndex];
             currIndex = int(payload.hyperPlaneSides[i]) * int(payload.hyperPlaneSides[j]) == -1 ? currIndex + 1 : currIndex;
         }
     }
@@ -109,10 +114,10 @@ void main(){
     
     for(int i = 0; i < currIndex; i++){
         gl_MeshVerticesEXT[i].gl_Position = payload.proj * vec4(interpolatedVertices[i].position.xyz, 1.f);
-        outNormal[i]   = interpolatedVertices[i].normal;
+        outNormal[i]   = transpose(inverse(payload.model)) * interpolatedVertices[i].normal;
         outColor[i]    = interpolatedVertices[i].color;
         outTexCoord[i] = interpolatedVertices[i].texCoord;
-        outWorldPos[i] = payload.vertices[i].position;
+        outWorldPos[i] = worldPositions[i];
     }
     
 
