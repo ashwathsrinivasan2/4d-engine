@@ -4,7 +4,7 @@
 
 
 layout(local_size_x = 1) in;
-layout(triangles, max_vertices = 6, max_primitives = 2) out;
+layout(triangles, max_vertices = 4, max_primitives = 3) out;
 
 struct Vertex {
     vec4 position;
@@ -27,7 +27,7 @@ struct TaskPayload{
     
     int numTriangles;
     Vertex vertices[4];
-    };
+};
 
 taskPayloadSharedEXT TaskPayload payload;
 
@@ -35,10 +35,6 @@ layout(location = 0) out vec4 outColor[];
 layout(location = 1) out vec4 outNormal[];
 layout(location = 2) out vec4 outTexCoord[];
 layout(location = 3) out vec4 outWorldPos[];
-
-
-
-Vertex interpolatedVertices[4];
 
 Vertex getInterpolatedVertex(int firstIndex, int secondIndex){
 
@@ -56,10 +52,6 @@ Vertex getInterpolatedVertex(int firstIndex, int secondIndex){
     vec4 normalDiff = vB.normal - vA.normal;
     vec4 colorDiff = vB.color - vA.color;
     vec4 texDiff = vB.texCoord - vA.texCoord;
-
-    if(abs(posDiff.w) < 0.0001){
-        return vA; // edge parallel to hyperplane, just return first vertex
-    }
 
     //how far on line segment to intersect
     float interpolationFactor = -aPos.w / posDiff.w;
@@ -80,7 +72,7 @@ Vertex getInterpolatedVertex(int firstIndex, int secondIndex){
     return interpolatedPoint;
 }
 
-uvec3 getSecondTriangleIndices(){
+uvec3 getSecondTriangleIndices(Vertex interpolatedVertices[4]){
     vec4 midPointA = (interpolatedVertices[0].position + interpolatedVertices[1].position) / 2.f;
     vec4 midPointB = (interpolatedVertices[1].position + interpolatedVertices[2].position) / 2.f;
     vec4 midPointC = (interpolatedVertices[2].position + interpolatedVertices[0].position) / 2.f;
@@ -93,13 +85,14 @@ uvec3 getSecondTriangleIndices(){
     min = (distanceB < distanceA && distanceB < distanceC) ? 1 : min;
     min = (distanceC < distanceB && distanceC < distanceA) ? 2 : min;
 
-    return uvec3(min, (min + 1) % 3, 3);
+    return uvec3(min, 3, (min + 1) % 3);
 }
 
 
 void main(){
 
-    SetMeshOutputsEXT(3, 1);
+    Vertex interpolatedVertices[4];
+    SetMeshOutputsEXT(payload.numTriangles + 2, payload.numTriangles);
     
     
     //calculate interpolated vertex for vertices on opposite sides of hyperplane
@@ -113,15 +106,18 @@ void main(){
         }
     }
 
-    for(int i = 0; i < 4; i++){
+    
+    for(int i = 0; i < currIndex; i++){
         gl_MeshVerticesEXT[i].gl_Position = payload.proj * vec4(interpolatedVertices[i].position.xyz, 1.f);
-        outNormal[i]   = payload.vertices[i].normal;
-        outColor[i]    = payload.vertices[i].color;
-        outTexCoord[i] = payload.vertices[i].texCoord;
-        outWorldPos[i] = vec4(0.f, 0.f, 0.f, 0.f);
+        outNormal[i]   = interpolatedVertices[i].normal;
+        outColor[i]    = interpolatedVertices[i].color;
+        outTexCoord[i] = interpolatedVertices[i].texCoord;
+        outWorldPos[i] = payload.vertices[i].position;
     }
+    
 
     gl_PrimitiveTriangleIndicesEXT[0] = uvec3(0, 1, 2); 
+    gl_PrimitiveTriangleIndicesEXT[1] = getSecondTriangleIndices(interpolatedVertices);
 
 
 }

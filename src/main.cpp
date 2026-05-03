@@ -17,6 +17,7 @@ int main(){
     //createSpiral(scene, 1000, 2.f, 2);
 
     int tesseract = scene.Tesseract(glm::vec3(1.f, 1.f, 0.f));
+    //scene.translate(tesseract, glm::vec4(0.f, 0.f, 0.f, 1.f));
 
     //scene.Cube(glm::vec3(1.f));
     //scene.rotate(scene.Cube(glm::vec3(1.f)), glm::vec3(1.f), 30.f);

@@ -50,6 +50,9 @@ class Scene{
         std::cout << "}";
     }
 
+    glm::vec4 crossProduct4D(glm::vec4, glm::vec4, glm::vec4);
+    void correctWindingOrder(std::vector<Vertex>& vertexData, glm::vec4 center = glm::vec4(0.f));
+
     public:
     Scene();
     int createEntity(std::vector<Vertex>);

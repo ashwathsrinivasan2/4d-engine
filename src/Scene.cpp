@@ -16,6 +16,7 @@ Scene::Scene(){
 
 
 int Scene::createEntity(std::vector<Vertex> vData){
+    correctWindingOrder(vData);
     for (int i = 0; i < vData.size(); i++) {
         Vertex newVertex = vData[i];
         newVertex.instanceID.x = instances.size();
@@ -41,6 +42,34 @@ std::vector<Scene::ConvertedInstance> Scene::convertInstances() {
         converted.push_back({ scale, instances[i].currTranslate });
     }
     return converted;
+}
+
+glm::vec4 Scene::crossProduct4D(glm::vec4 a, glm::vec4 b, glm::vec4 c) {
+
+    glm::vec4 normal;
+    normal.x = glm::determinant(glm::mat3(a.y, a.z, a.w, b.y, b.z, b.w, c.y, c.z, c.w));
+    normal.y = -glm::determinant(glm::mat3(a.x, a.z, a.w, b.x, b.z, b.w, c.x, c.z, c.w));
+    normal.z = glm::determinant(glm::mat3(a.x, a.y, a.w, b.x, b.y, b.w, c.x, c.y, c.w));
+    normal.w = -glm::determinant(glm::mat3(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z));
+    return normal;
+}
+
+void Scene::correctWindingOrder(std::vector<Vertex>& vertexData, glm::vec4 center) {
+    for (int i = 0; i < vertexData.size(); i += 4) {
+        glm::vec4 vA = vertexData[i].pos - vertexData[i + 1].pos;
+        glm::vec4 vB = vertexData[i].pos -vertexData[i + 2].pos;
+        glm::vec4 vC = vertexData[i].pos - vertexData[i + 3].pos;
+        glm::vec4 normal = crossProduct4D(vA, vB, vC);
+
+        glm::vec4 cellCenter = (vertexData[i].pos + vertexData[i + 1].pos + vertexData[i + 2].pos + vertexData[i + 3].pos) / 4.f;
+        glm::vec4 outwards = cellCenter - center;
+
+        if (glm::dot(outwards, normal) < 0) {
+            Vertex temp = vertexData[i];
+            vertexData[i] = vertexData[i + 1];
+            vertexData[i + 1] = temp;
+        }
+    }
 }
 
 void Scene::translate(int entityIndex, glm::vec4 translation)
