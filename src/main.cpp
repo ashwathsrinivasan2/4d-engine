@@ -12,11 +12,24 @@
 
 int main(){
     Scene scene;
+    bool test = true;
 
     //createBox(scene, 20.f, 15.f, 20.f, 0.2f);
     //createSpiral(scene, 1000, 2.f, 2);
 
+
     int tesseract = scene.Tesseract(glm::vec3(1.f, 1.f, 0.f));
+
+    if (test) {
+        scene.scale(tesseract, glm::vec4(1.f, 1.f, 1.f, 10.f));
+        scene.rotate(tesseract, 0, 1, 1, 0, glm::pi<float>() / 4.f);
+    }
+    else {
+        scene.rotate(tesseract, 1, 0, 0, 1, glm::pi<float>() / 4);
+        scene.rotate(tesseract, 0, 1, 0, 1, 0.6155);
+        scene.rotate(tesseract, 0, 0, 1, 1, glm::pi<float>() / 3);
+    }
+    
     //scene.translate(tesseract, glm::vec4(0.f, 0.f, 0.f, 1.f));
 
     //scene.Cube(glm::vec3(1.f));

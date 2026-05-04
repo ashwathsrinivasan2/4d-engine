@@ -50,8 +50,8 @@ layout(local_size_x = 1) in;
 taskPayloadSharedEXT TaskPayload payload;
 
 bool intersectsPlane(vec4 sides){
-    bool hasPos = sides.x > 0.0 || sides.y > 0.0 || sides.z > 0.0 || sides.w > 0.0;
-    bool hasNeg = sides.x < 0.0 || sides.y < 0.0 || sides.z < 0.0 || sides.w < 0.0;
+    bool hasPos = sides.x >= 0.0 || sides.y >= 0.0 || sides.z >= 0.0 || sides.w >= 0.0;
+    bool hasNeg = sides.x <= 0.0 || sides.y <= 0.0 || sides.z <= 0.0 || sides.w <= 0.0;
     return hasPos && hasNeg;
 }
 
@@ -67,7 +67,7 @@ int sum(vec4 sides){
 vec4 getTetrahedronNormal(vec4 positions[4]){
     vec4 sideVectors[3];
     for(int i = 1; i < 4; i++){
-        sideVectors[i] = positions[0] - positions[i];
+        sideVectors[i - 1] = positions[0] - positions[i];
     }
 
     mat3 subMatrices[4];
@@ -92,7 +92,6 @@ vec4 getTetrahedronNormal(vec4 positions[4]){
 }
 
 
-
 void main(){
     uint index = gl_WorkGroupID.x * gl_WorkGroupSize.x + gl_LocalInvocationID.x;
 
@@ -101,8 +100,8 @@ void main(){
     vec4 hyperPlaneSide;
     vec4 viewPos[4];
     for(int i = 0; i < 4; i++){
-        viewPos[i] = ubo.view * (instanceData[currInstance].model * vertexData[4 * index + i].position + instanceData[currInstance].modelTranslate + ubo.viewTranslate);
-        hyperPlaneSide[i] = sign(viewPos[i].w);
+        viewPos[i] = ubo.view * (instanceData[currInstance].model * vertexData[4 * index + i].position + instanceData[currInstance].modelTranslate) + ubo.viewTranslate;
+        hyperPlaneSide[i] = sign(viewPos[i].w) >= 0.f ? 1.f : -1.f;
     }
 
 
@@ -127,11 +126,11 @@ void main(){
         }
         payload.numTriangles = (posCount == 2 && negCount == 2) ? 2 : 1;
 
+
         vec4 avgViewPos = (viewPos[0] + viewPos[1] + viewPos[2] + viewPos[3]) / 4.f;
 
-        bool visible = intersectsPlane(hyperPlaneSide);// && (dot(-avgViewPos, getTetrahedronNormal(viewPos)) > 0.f);
+        bool visible = intersectsPlane(hyperPlaneSide) && (dot(-avgViewPos, getTetrahedronNormal(viewPos)) > 0.f);
 
         EmitMeshTasksEXT(visible ? 1 : 0, 1, 1);
-
 
 }

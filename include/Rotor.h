@@ -11,15 +11,14 @@ class Rotor{
     //0 for omitted terms
     //1-7 for 0-6 indices
     //sign determines whether to add or subtract term
-    int termLookupTable[7][7] = 
-    {
-        1, 2, 3, 4, 5, 6, 7,
-        2, -1, -5, -6, 3, 4, 0,
-        3, 5, -1, -7, -2, 0, 4,
-        4, 6, 7, -1, 0, -2, -3,
-        5, -3, 2, 0, -1, -7, 6,
-        6, -4, 0, 2, 7, -1, -5,
-        7, 0, -4, 3, -6, 5, -1
+    int termLookupTable[7][7] = {
+          1,   2,   3,   4,   5,   6,   7,
+          2,  -1,  -5,  -6,   3,   4,   0,
+          3,   5,  -1,  -7,  -2,   0,   4,
+          4,   6,   7,  -1,   0,  -2,  -3,
+          5,  -3,   2,   0,  -1,  -7,   6,
+          6,  -4,   0,   2,   7,  -1,  -5,
+          7,   0,  -4,   3,  -6,   5,  -1,
     };
 
     glm::vec4 rotateVec(glm::vec4);

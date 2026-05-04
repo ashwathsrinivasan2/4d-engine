@@ -56,6 +56,10 @@ Vertex getInterpolatedVertex(int firstIndex, int secondIndex, out vec4 worldPos)
     vec4 texDiff = vB.texCoord - vA.texCoord;
     vec4 worldDiff = bWorld - aWorld;
 
+    if(abs(posDiff.w) < 0.0001){
+    return vA; // edge parallel to hyperplane
+}
+
     //how far on line segment to intersect
     float interpolationFactor = -aPos.w / posDiff.w;
 
@@ -97,6 +101,12 @@ void main(){
 
     Vertex interpolatedVertices[4];
     vec4 worldPositions[4];
+
+
+    if(payload.numTriangles < 1){
+        SetMeshOutputsEXT(0, 0);
+        return;
+    }
     SetMeshOutputsEXT(payload.numTriangles + 2, payload.numTriangles);
     
     
@@ -105,12 +115,13 @@ void main(){
     int currIndex = 0;
     for(int i = 0; i < 3; i++){
         for(int j = i + 1; j < 4; j++){
-            currIndex = currIndex >= 4 ? 3 : currIndex;
-            interpolatedVertices[currIndex] = int(payload.hyperPlaneSides[i]) * int(payload.hyperPlaneSides[j]) == -1 ? getInterpolatedVertex(i, j, worldPositions[currIndex]) : interpolatedVertices[currIndex];
-            currIndex = int(payload.hyperPlaneSides[i]) * int(payload.hyperPlaneSides[j]) == -1 ? currIndex + 1 : currIndex;
+            if(currIndex >= 4) break;
+            if(int(payload.hyperPlaneSides[i]) * int(payload.hyperPlaneSides[j]) == -1){
+                interpolatedVertices[currIndex] = getInterpolatedVertex(i, j, worldPositions[currIndex]);
+                currIndex++;
+            }
         }
     }
-
     
     for(int i = 0; i < currIndex; i++){
         gl_MeshVerticesEXT[i].gl_Position = payload.proj * vec4(interpolatedVertices[i].position.xyz, 1.f);
@@ -119,10 +130,9 @@ void main(){
         outTexCoord[i] = interpolatedVertices[i].texCoord;
         outWorldPos[i] = worldPositions[i];
     }
-    
 
-    gl_PrimitiveTriangleIndicesEXT[0] = uvec3(0, 1, 2); 
-    gl_PrimitiveTriangleIndicesEXT[1] = getSecondTriangleIndices(interpolatedVertices);
+    gl_PrimitiveTriangleIndicesEXT[0] = uvec3(0, 1, 2);
+    gl_PrimitiveTriangleIndicesEXT[1] = uvec3(1, 3, 2); 
 
 
 }

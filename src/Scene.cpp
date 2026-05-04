@@ -22,8 +22,15 @@ int Scene::createEntity(std::vector<Vertex> vData){
         newVertex.instanceID.x = instances.size();
         vertices.push_back(newVertex);
     }
+
+    
     Instance newInstance;
+    /*
+    Rotor r(3.f, 0.f, 0.f, 1.f, 0.f, 1.f, 1.f);
+    newInstance.currRotation = r * newInstance.currRotation;
+    */
     instances.push_back(newInstance);
+
     std::cout << vertices.size();
     return instances.size() - 1;
 }
@@ -32,14 +39,11 @@ std::vector<Scene::ConvertedInstance> Scene::convertInstances() {
     std::vector<ConvertedInstance> converted;
     for (int i = 0; i < instances.size(); i++) {
         glm::vec4 scaleVec = instances[i].currScale;
-        glm::mat4 scale =
-        (
-            scaleVec.x, 0.f, 0.f, 0.f,
-            0.f, scaleVec.y, 0.f, 0.f,
-            0.f, 0.f, scaleVec.z, 0.f,
-            0.f, 0.f, 0.f, scaleVec.w
-        );
-        converted.push_back({ scale, instances[i].currTranslate });
+        glm::mat4 scale(1.f);
+        for (int j = 0; j < 4; j++) {
+            scale[j][j] = scaleVec[j];
+        }
+        converted.push_back({ instances[i].currRotation.toMatrix() * scale, instances[i].currTranslate });
     }
     return converted;
 }
@@ -83,6 +87,27 @@ void Scene::scale(int entityIndex, glm::vec4 scale)
 }
 
 void Scene::rotate(int entityIndex, int x, int y, int z, int w, float radians) {
+    Rotor rotation;
+    float rotVal = glm::sin(radians / 2.f);
+    
+    if (x && y) {
+        rotation.setXY(rotVal);
+    } else if (x && z) {
+        rotation.setXZ(rotVal);
+    } else if (x && w) {
+        rotation.setXW(rotVal);
+    } else if (y && z) {
+        rotation.setYZ(rotVal);
+    } else if (y && w) {
+        rotation.setYW(rotVal);
+    } else if (z && w) {
+        rotation.setZW(rotVal);
+    } else {
+        std::cout << "Invalid rotation" << std::endl;
+        return;
+    }
+
+    instances[entityIndex].currRotation = instances[entityIndex].currRotation * rotation;
 
 }
 
@@ -549,6 +574,44 @@ int Scene::Tesseract(glm::vec3 color){
         { {0.5, 0.5, -0.5, 0.5}, color, {0, 0, 0, 1}, {0.f, 0.f, 0.f} }
 
     };
+
+    std::vector<glm::vec3> minUVCorners =
+    {
+        {0.f, 0.5f, 0.3333f},
+        {0.6666f, 0.5f, 0.3333f},
+        {0.3333f, 0.3333f, 0.3333f},
+        {0.3333f, 0.75f, 0.3333f},
+        {0.3333f, 0.5f, 0.6666f},
+        {0.3333f, 0.5f, 0.f},
+        {0.3333f, 0.f, 0.3333f},
+        {0.3333f, 0.5f, 0.3333f}
+    };
+    
+    glm::vec3 uvDiagonal(0.3333f, 0.25f, 0.3333f);
+
+    for (int i = 0; i < 8; i++) {
+        
+        for (int j = 0; j < 20; j++) {
+            glm::vec3 minCorner = minUVCorners[i];
+            glm::vec3 maxCorner = minCorner + uvDiagonal;
+            Vertex v = vertexData[20 * i + j];
+            int curr = 0;
+
+            for (int k = 0; k < 4; k++) {
+                if (k != i / 2) {
+                    if (v.pos[k] > 0.f) {
+                        v.texCoord[curr] = maxCorner[curr];
+                    }
+                    else {
+                        v.texCoord[curr] = minCorner[curr];
+                    }
+                    curr++;
+                }
+            }
+            vertexData[20 * i + j] = v;
+        }
+    }
+
 
     return createEntity(vertexData);
 
