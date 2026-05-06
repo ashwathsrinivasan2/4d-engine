@@ -69,6 +69,7 @@ class Renderer{
         glm::mat4 view;
         glm::vec4 viewTranslate;
         glm::mat4 proj;
+        unsigned numTetrahedrons;
     };
 
     struct InstanceData {

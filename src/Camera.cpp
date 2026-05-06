@@ -2,6 +2,7 @@
 #include "Camera.h"
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtx/rotate_vector.hpp"
+#include "glm/gtc/constants.hpp"
 #include <iostream>
 
 Camera::Camera(){
@@ -12,7 +13,7 @@ Camera::Camera(){
     anaVector = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
 
     lastMousePos = glm::vec2(0.0f, 0.0f);
-    sensitivity = 4.f;
+    sensitivity = 0.5f;
     fov = glm::radians(90.0f);
 }
 
@@ -24,6 +25,8 @@ glm::mat4 Camera::getViewMatrix(){
     view[1] = upVector;
     view[2] = -viewVector;
     view[3] = anaVector;
+
+    
 
     return view;
 }

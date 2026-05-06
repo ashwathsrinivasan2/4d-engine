@@ -25,13 +25,8 @@ int Scene::createEntity(std::vector<Vertex> vData){
 
     
     Instance newInstance;
-    /*
-    Rotor r(3.f, 0.f, 0.f, 1.f, 0.f, 1.f, 1.f);
-    newInstance.currRotation = r * newInstance.currRotation;
-    */
     instances.push_back(newInstance);
 
-    std::cout << vertices.size();
     return instances.size() - 1;
 }
 
@@ -83,7 +78,7 @@ void Scene::translate(int entityIndex, glm::vec4 translation)
 
 void Scene::scale(int entityIndex, glm::vec4 scale)
 {
-    instances[entityIndex].currScale += scale;
+    instances[entityIndex].currScale *= scale;
 }
 
 void Scene::rotate(int entityIndex, int x, int y, int z, int w, float radians) {

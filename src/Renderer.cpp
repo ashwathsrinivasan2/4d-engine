@@ -851,7 +851,7 @@ void Renderer::createShaderModules(){
     std::vector<char> taskShaderCode = readFile(taskShaderFilename);
     std::vector<char> meshShaderCode = readFile(meshShaderFilename);
     std::vector<char> fragShaderCode = readFile(fragShaderFilename);
-
+    
     taskShaderModule = createShaderModule(taskShaderCode);
     meshShaderModule = createShaderModule(meshShaderCode);
     fragShaderModule = createShaderModule(fragShaderCode);
@@ -944,19 +944,19 @@ void Renderer::createDescriptorSetLayout(){
     layoutBindings[0].binding = 0;                                           //binding location in shader
     layoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     layoutBindings[0].descriptorCount = 1;                                   //could be an array of ubos
-    layoutBindings[0].stageFlags = VK_SHADER_STAGE_TASK_BIT_EXT;               //which shaders will use this ubo
+    layoutBindings[0].stageFlags = VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT;               //which shaders will use this ubo
     layoutBindings[0].pImmutableSamplers = nullptr;
 
     layoutBindings[1].binding = 1;                                           //binding location in shader
     layoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     layoutBindings[1].descriptorCount = 1;                                   //could be an array of ubos
-    layoutBindings[1].stageFlags = VK_SHADER_STAGE_TASK_BIT_EXT;               //which shaders will use this ubo
+    layoutBindings[1].stageFlags = VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT;               //which shaders will use this ubo
     layoutBindings[1].pImmutableSamplers = nullptr;
 
     layoutBindings[2].binding = 2;                                           //binding location in shader
     layoutBindings[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     layoutBindings[2].descriptorCount = 1;                                   //could be an array of ubos
-    layoutBindings[2].stageFlags = VK_SHADER_STAGE_TASK_BIT_EXT;               //which shaders will use this ubo
+    layoutBindings[2].stageFlags = VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT;               //which shaders will use this ubo
     layoutBindings[2].pImmutableSamplers = nullptr;
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
@@ -1286,7 +1286,7 @@ void Renderer::recordCommandBuffers(int i){
     VkDeviceSize offsets[] = {0};
 
     vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
-    vkCmdDrawMeshTasksEXT(commandBuffers[i], 40, 1, 1);
+    vkCmdDrawMeshTasksEXT(commandBuffers[i], (scene->getNumTetrahedrons() + 63) / 64, 1, 1);
     vkCmdEndRendering(commandBuffers[i]);
     transitionImageLayout(commandBuffers[i], swapchainImages[i], swapchainImageFormat, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
@@ -1304,6 +1304,8 @@ void Renderer::updateUniformBuffer(uint32_t currentImage){
     //std::cout << "viewTranslate: " << viewTranslate.x << " " << viewTranslate.y << " " << viewTranslate.z << " " << viewTranslate.w << std::endl;
     ubo.proj = glm::perspective(glm::radians(45.0f), swapchainExtent.width / (float) swapchainExtent.height, 0.1f, 100.f);
     ubo.proj[1][1] *= -1;
+
+    ubo.numTetrahedrons = scene->getNumTetrahedrons();
 
     memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 }

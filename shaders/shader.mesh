@@ -3,8 +3,10 @@
 
 
 
-layout(local_size_x = 1) in;
-layout(triangles, max_vertices = 4, max_primitives = 3) out;
+struct InstanceData{
+    mat4 model;
+    vec4 modelTranslate;
+};
 
 struct Vertex {
     vec4 position;
@@ -15,19 +17,35 @@ struct Vertex {
 };
 
 struct TaskPayload{
-    vec4 hyperPlaneSides;
-    
-    mat4 model;
-    vec4 modelTranslate;
+    uint numTriangles[64];
+    uint indices[64];
+    vec4 hyperPlaneSides[64];
+};
 
+
+
+layout(binding = 0) uniform UniformBufferObject{
     mat4 view;
     vec4 viewTranslate;
-    
     mat4 proj;
-    
-    int numTriangles;
-    Vertex vertices[4];
+    uint numTetrahedrons;
+} ubo;
+
+layout(std430, binding = 1) buffer VertexSSBO {
+   Vertex vertexData[ ];
 };
+
+layout(std430, binding = 2) readonly buffer InstanceDataSSBO {
+   InstanceData instanceData[ ];
+};
+
+
+
+layout(local_size_x = 1) in;
+
+layout(triangles, max_vertices = 4, max_primitives = 2) out;
+
+
 
 taskPayloadSharedEXT TaskPayload payload;
 
@@ -36,17 +54,17 @@ layout(location = 1) out vec4 outNormal[];
 layout(location = 2) out vec4 outTexCoord[];
 layout(location = 3) out vec4 outWorldPos[];
 
-Vertex getInterpolatedVertex(int firstIndex, int secondIndex, out vec4 worldPos){
+Vertex getInterpolatedVertex(uint firstIndex, uint secondIndex, mat4 model, vec4 modelTranslate, out vec4 worldPos){
 
     //get vertices to interpolate between
-    Vertex vA = payload.vertices[firstIndex];
-    Vertex vB = payload.vertices[secondIndex];
+    Vertex vA = vertexData[firstIndex];
+    Vertex vB = vertexData[secondIndex];
 
-    vec4 aWorld = payload.model * vA.position + payload.modelTranslate;
-    vec4 bWorld = payload.model * vB.position + payload.modelTranslate;
+    vec4 aWorld = model * vA.position + modelTranslate;
+    vec4 bWorld = model * vB.position + modelTranslate;
 
-    vec4 aPos = payload.view * (aWorld + payload.viewTranslate);
-    vec4 bPos = payload.view * (bWorld + payload.viewTranslate);
+    vec4 aPos = ubo.view * aWorld + ubo.viewTranslate;
+    vec4 bPos = ubo.view * bWorld + ubo.viewTranslate;
 
 
     //get vertex differences for each attribute
@@ -80,52 +98,43 @@ Vertex getInterpolatedVertex(int firstIndex, int secondIndex, out vec4 worldPos)
     return interpolatedPoint;
 }
 
-uvec3 getSecondTriangleIndices(Vertex interpolatedVertices[4]){
-    vec4 midPointA = (interpolatedVertices[0].position + interpolatedVertices[1].position) / 2.f;
-    vec4 midPointB = (interpolatedVertices[1].position + interpolatedVertices[2].position) / 2.f;
-    vec4 midPointC = (interpolatedVertices[2].position + interpolatedVertices[0].position) / 2.f;
-
-    float distanceA = length(midPointA - interpolatedVertices[3].position);
-    float distanceB = length(midPointB - interpolatedVertices[3].position);
-    float distanceC = length(midPointC - interpolatedVertices[3].position);
-
-    uint min = 0;
-    min = (distanceB < distanceA && distanceB < distanceC) ? 1 : min;
-    min = (distanceC < distanceB && distanceC < distanceA) ? 2 : min;
-
-    return uvec3(min, 3, (min + 1) % 3);
-}
-
-
 void main(){
-
     Vertex interpolatedVertices[4];
     vec4 worldPositions[4];
 
+    uint culledIndex = gl_WorkGroupID.x;
 
-    if(payload.numTriangles < 1){
+
+    if(payload.numTriangles[culledIndex] < 1){
         SetMeshOutputsEXT(0, 0);
         return;
     }
-    SetMeshOutputsEXT(payload.numTriangles + 2, payload.numTriangles);
+    SetMeshOutputsEXT(payload.numTriangles[culledIndex] + 2, payload.numTriangles[culledIndex]);
+    
+    uint index = payload.indices[culledIndex];
+    uint instanceID = vertexData[index].instanceID.x;
+    mat4 model = instanceData[instanceID].model;
+    vec4 modelTranslate = instanceData[instanceID].modelTranslate;
+    vec4 hyperPlaneSide = payload.hyperPlaneSides[gl_WorkGroupID.x];
+
     
     
-    //calculate interpolated vertex for vertices on opposite sides of hyperplane
-    
-    int currIndex = 0;
-    for(int i = 0; i < 3; i++){
-        for(int j = i + 1; j < 4; j++){
-            if(currIndex >= 4) break;
-            if(int(payload.hyperPlaneSides[i]) * int(payload.hyperPlaneSides[j]) == -1){
-                interpolatedVertices[currIndex] = getInterpolatedVertex(i, j, worldPositions[currIndex]);
+
+    uint currIndex = 0;
+    for(uint i = 0; i < 3 && currIndex < 4; i++){
+        for(uint j = i + 1; j < 4 && currIndex < 4; j++){
+           
+            if(hyperPlaneSide[i] * hyperPlaneSide[j] < 0.f){
+                interpolatedVertices[currIndex] = getInterpolatedVertex(index + i, index + j, model, modelTranslate, worldPositions[currIndex]);
                 currIndex++;
             }
         }
     }
+
     
-    for(int i = 0; i < currIndex; i++){
-        gl_MeshVerticesEXT[i].gl_Position = payload.proj * vec4(interpolatedVertices[i].position.xyz, 1.f);
-        outNormal[i]   = transpose(inverse(payload.model)) * interpolatedVertices[i].normal;
+    for(uint i = 0; i < currIndex; i++){
+        gl_MeshVerticesEXT[i].gl_Position = ubo.proj * vec4(interpolatedVertices[i].position.xyz, 1.f);
+        outNormal[i]   = transpose(inverse(model)) * interpolatedVertices[i].normal;
         outColor[i]    = interpolatedVertices[i].color;
         outTexCoord[i] = interpolatedVertices[i].texCoord;
         outWorldPos[i] = worldPositions[i];

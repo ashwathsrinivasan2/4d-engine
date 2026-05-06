@@ -60,19 +60,7 @@ class Scene{
     size_t getVertexBufferSize() { return sizeof(Vertex) * vertices.size(); }
     size_t getInstanceBufferSize() { return sizeof(ConvertedInstance) * instances.size(); }
 
-    std::vector<Vertex> getVertexData() {
-        for (int i = 0; i < vertices.size(); i++) {
-            printVec("pos", vertices[i].pos);
-            std::cout << ", ";
-            printVec("color", vertices[i].color);
-            std::cout << ", ";
-            printVec("normal", vertices[i].normal);
-            std::cout << ", ";
-            printVec("texCoord", vertices[i].texCoord);
-            std::cout << ", id: " << vertices[i].instanceID.x;
-            std::cout << std::endl;
-        }
-        return vertices; }
+    std::vector<Vertex> getVertexData() { return vertices; }
     std::vector<ConvertedInstance> getInstanceData() { return convertInstances(); }
     Camera& getCamera(){return cam;}
 
@@ -80,6 +68,8 @@ class Scene{
     void translate(int, glm::vec4);
     void scale(int , glm::vec4);
     void rotate(int, int, int, int, int, float);
+
+    int getNumTetrahedrons() { return vertices.size() / 4; }
     
 
     //Entity Factory Functions

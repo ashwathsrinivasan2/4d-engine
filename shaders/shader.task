@@ -1,12 +1,6 @@
 #version 460
 #extension GL_EXT_mesh_shader : require
 
-layout(binding = 0) uniform UniformBufferObject{
-    mat4 view;
-    vec4 viewTranslate;
-
-    mat4 proj;
-} ubo;
 
 struct InstanceData{
     mat4 model;
@@ -22,20 +16,19 @@ struct Vertex {
 };
 
 struct TaskPayload{
-    vec4 hyperPlaneSides;
-    
-    mat4 model;
-    vec4 modelTranslate;
+    uint numTriangles[64];
+    uint indices[64];
+    vec4 hyperPlaneSides[64];
+};
 
+
+
+layout(binding = 0) uniform UniformBufferObject{
     mat4 view;
     vec4 viewTranslate;
-
     mat4 proj;
-
-    int numTriangles;
-    Vertex vertices[4];
-    
-};
+    uint numTetrahedrons;
+} ubo;
 
 layout(std430, binding = 1) readonly buffer VertexSSBO {
    Vertex vertexData[ ];
@@ -45,9 +38,17 @@ layout(std430, binding = 2) readonly buffer InstanceDataSSBO {
    InstanceData instanceData[ ];
 };
 
-layout(local_size_x = 1) in;
+
+
+layout(local_size_x = 64) in;
+
+
 
 taskPayloadSharedEXT TaskPayload payload;
+
+shared uint currIndex;
+
+
 
 bool intersectsPlane(vec4 sides){
     bool hasPos = sides.x >= 0.0 || sides.y >= 0.0 || sides.z >= 0.0 || sides.w >= 0.0;
@@ -92,45 +93,57 @@ vec4 getTetrahedronNormal(vec4 positions[4]){
 }
 
 
+
 void main(){
     uint index = gl_WorkGroupID.x * gl_WorkGroupSize.x + gl_LocalInvocationID.x;
 
-    //figure out which side of hyperplane each vertex is on
-    uint currInstance = vertexData[4 * index].instanceID.x;
-    vec4 hyperPlaneSide;
-    vec4 viewPos[4];
-    for(int i = 0; i < 4; i++){
-        viewPos[i] = ubo.view * (instanceData[currInstance].model * vertexData[4 * index + i].position + instanceData[currInstance].modelTranslate) + ubo.viewTranslate;
-        hyperPlaneSide[i] = sign(viewPos[i].w) >= 0.f ? 1.f : -1.f;
+    if(gl_LocalInvocationID.x == 0){
+        currIndex = 0;
     }
 
+    barrier();
+
+    if(index < ubo.numTetrahedrons){
+
+        //figure out which side of hyperplane each vertex is on
+        uint currInstance = vertexData[4 * index].instanceID.x;
+        vec4 hyperPlaneSide;
+        vec4 viewPos[4];
+
+        mat4 model = instanceData[currInstance].model;
+        vec4 modelTranslate = instanceData[currInstance].modelTranslate;
 
         for(int i = 0; i < 4; i++){
-            payload.vertices[i] = vertexData[4 * index + i];
+            viewPos[i] = ubo.view * ((model * vertexData[4 * index + i].position + modelTranslate) + ubo.viewTranslate);
+            hyperPlaneSide[i] = sign(viewPos[i].w) >= 0.f ? 1.f : -1.f;
         }
-
-
-        payload.model = instanceData[currInstance].model;
-        payload.modelTranslate = instanceData[currInstance].modelTranslate;
-        payload.view = ubo.view;
-        payload.viewTranslate = ubo.viewTranslate;
-        payload.proj = ubo.proj;
-
-        payload.hyperPlaneSides = hyperPlaneSide;
-
-        int posCount = 0;
-        int negCount = 0;
-        for(int i = 0; i < 4; i++){
-            posCount += hyperPlaneSide[i] > 0.f ? 1 : 0;
-            negCount += hyperPlaneSide[i] < 0.f ? 1 : 0;
-        }
-        payload.numTriangles = (posCount == 2 && negCount == 2) ? 2 : 1;
-
 
         vec4 avgViewPos = (viewPos[0] + viewPos[1] + viewPos[2] + viewPos[3]) / 4.f;
 
         bool visible = intersectsPlane(hyperPlaneSide) && (dot(-avgViewPos, getTetrahedronNormal(viewPos)) > 0.f);
 
-        EmitMeshTasksEXT(visible ? 1 : 0, 1, 1);
+        if(visible){
+            uint threadIndex = atomicAdd(currIndex, 1);
+
+            if(threadIndex < 64){
+                payload.hyperPlaneSides[threadIndex] = hyperPlaneSide;
+                int posCount = 0;
+                int negCount = 0;
+                for(int i = 0; i < 4; i++){
+                    posCount += hyperPlaneSide[i] > 0.f ? 1 : 0;
+                    negCount += hyperPlaneSide[i] <= 0.f ? 1 : 0;
+                }
+                payload.numTriangles[threadIndex] = (posCount == 2 && negCount == 2) ? 2 : 1;
+                payload.indices[threadIndex] = 4 * int(index);
+            }
+        }
+    }
+
+    memoryBarrierShared();
+    barrier();
+
+    if(gl_LocalInvocationID.x == 0){
+        EmitMeshTasksEXT(min(currIndex, 64), 1, 1);
+    }
 
 }
