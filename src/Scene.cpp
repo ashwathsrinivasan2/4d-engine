@@ -16,6 +16,10 @@ Scene::Scene(){
 
 
 int Scene::createEntity(std::vector<Vertex> vData){
+
+    if((vertices.size() + vData.size()) > MAX_VERTICES) {
+        throw std::runtime_error("Not enough memory to store new entity");
+    }
     correctWindingOrder(vData);
     for (int i = 0; i < vData.size(); i++) {
         Vertex newVertex = vData[i];
@@ -30,16 +34,34 @@ int Scene::createEntity(std::vector<Vertex> vData){
     return instances.size() - 1;
 }
 
+void Scene::updateFromParent(int index, glm::mat4& model, glm::vec4& modelTranslate) {
+
+    glm::mat4 scale(1.f);
+    for (int i = 0; i < 4; i++) {
+        scale[i][i] = instances[index].currScale[i];
+    }
+
+    glm::mat4 pModel = instances[index].currRotation * scale;
+    glm::vec4 pModelTranslate = instances[index].currTranslate;
+
+    model = pModel * model;
+    modelTranslate = pModel * modelTranslate + pModelTranslate;
+
+
+    if (instances[index].parentID != -1) {
+        updateFromParent(instances[index].parentID, model, modelTranslate);
+    }
+}
+
 std::vector<Scene::ConvertedInstance> Scene::convertInstances() {
     std::vector<ConvertedInstance> converted;
     for (int i = 0; i < instances.size(); i++) {
-        glm::vec4 scaleVec = instances[i].currScale;
-        glm::mat4 scale(1.f);
-        for (int j = 0; j < 4; j++) {
-            scale[j][j] = scaleVec[j];
-        }
-        converted.push_back({ instances[i].currRotation.toMatrix() * scale, instances[i].currTranslate });
+        glm::mat4 model(1.f);
+        glm::vec4 translate(0.f);
+        updateFromParent(i, model, translate);
+        converted.push_back({ model, translate });
     }
+        
     return converted;
 }
 
@@ -82,27 +104,51 @@ void Scene::scale(int entityIndex, glm::vec4 scale)
 }
 
 void Scene::rotate(int entityIndex, int x, int y, int z, int w, float radians) {
-    Rotor rotation;
-    float rotVal = glm::sin(radians / 2.f);
-    
-    if (x && y) {
-        rotation.setXY(rotVal);
-    } else if (x && z) {
-        rotation.setXZ(rotVal);
-    } else if (x && w) {
-        rotation.setXW(rotVal);
-    } else if (y && z) {
-        rotation.setYZ(rotVal);
-    } else if (y && w) {
-        rotation.setYW(rotVal);
-    } else if (z && w) {
-        rotation.setZW(rotVal);
-    } else {
-        std::cout << "Invalid rotation" << std::endl;
-        return;
+    float a = glm::radians(45.f);
+    float b = asin(1.f / sqrt(3.f));
+    float c = glm::radians(30.f);
+
+    glm::mat4 rotXW(1.f);
+    rotXW[0][0] = cos(a); rotXW[3][0] = -sin(a);
+    rotXW[0][3] = sin(a); rotXW[3][3] = cos(a);
+
+    glm::mat4 rotYW(1.f);
+    rotYW[1][1] = cos(b); rotYW[3][1] = -sin(b);
+    rotYW[1][3] = sin(b); rotYW[3][3] = cos(b);
+
+    glm::mat4 rotZW(1.f);
+    rotZW[2][2] = cos(c); rotZW[3][2] = -sin(c);
+    rotZW[2][3] = sin(c); rotZW[3][3] = cos(c);
+
+    glm::mat4 rotation = rotZW * rotYW * rotXW;
+
+    instances[entityIndex].currRotation = rotation;
+}
+
+int Scene::groupEntities(std::vector<int> entities) {
+    int parentID = instances.size();
+
+    if (entities.empty()) {
+        for (int i = 0; i < instances.size(); i++) {
+            entities.push_back(i);
+        }
     }
 
-    instances[entityIndex].currRotation = instances[entityIndex].currRotation * rotation;
+    for (int i = 0; i < entities.size(); i++) {
+        int childID = entities[i];
+        if (instances[childID].parentID != -1) {
+            throw std::runtime_error("At least one of given entities is already part of a group.");
+        }
+    }
+
+    for (int i = 0; i < entities.size(); i++) {
+        int childID = entities[i];
+        instances[childID].parentID = parentID;
+    }
+
+    Instance newInstance;
+    instances.push_back(newInstance);
+    return instances.size() - 1;
 
 }
 

@@ -8,7 +8,7 @@ layout(location = 3) in vec4 worldPos;
 
 layout(location = 0) out vec4 outColor;
 
-vec4 lightPos = vec4(0.f, 0.f, 5.f, 0.f);
+vec4 lightPos = vec4(0.f, 0.f, 0.f, 0.f);
 vec3 ambient = vec3(0.1f, 0.1f, 0.1f);
 
 void main(){
@@ -19,7 +19,7 @@ void main(){
     distance = distance < 1.f ? 1.f : distance;
     float intensity = 10.f * dotProduct / (distance * distance);
 
-    vec3 color = fragColor.rgb;
+    vec3 color = texCoord.rgb;
     outColor = vec4(color * (intensity + ambient), 1.f);
     clamp(outColor, 0.f, 1.f);
  

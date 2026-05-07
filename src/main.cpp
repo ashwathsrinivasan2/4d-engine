@@ -18,7 +18,7 @@ inline bool contains(std::vector<T> list, T value) {
     }
     return false;
 }
-const std::vector<int> getTwoOnes() {
+const std::vector<int> getCubeIDs(int numOnes, int op) {
     std::vector<int> cubeIDs;
     for (int i = 0; i < 3; i++) {
         for (int j = 0; j < 3; j++) {
@@ -29,7 +29,14 @@ const std::vector<int> getTwoOnes() {
                     oneCount += j == 1;
                     oneCount += k == 1;
                     oneCount += l == 1;
-                    if (oneCount == 2) {
+                    
+                    if (op == 0 && oneCount < numOnes) {
+                        int cubeID = i * 27 + j * 9 + k * 3 + l;
+                        cubeIDs.push_back(cubeID);
+                    } else if (op == 1 && oneCount == numOnes) {
+                        int cubeID = i * 27 + j * 9 + k * 3 + l;
+                        cubeIDs.push_back(cubeID);
+                    } else if (op == 2 && oneCount > numOnes){
                         int cubeID = i * 27 + j * 9 + k * 3 + l;
                         cubeIDs.push_back(cubeID);
                     }
@@ -40,27 +47,6 @@ const std::vector<int> getTwoOnes() {
     return cubeIDs;
 }
 
-const std::vector<int> getMengerSponge4D() {
-    std::vector<int> cubeIDs;
-    for (int i = 0; i < 3; i++) {
-        for (int j = 0; j < 3; j++) {
-            for (int k = 0; k < 3; k++) {
-                for (int l = 0; l < 3; l++) {
-                    int oneCount = 0;
-                    oneCount += i == 1;
-                    oneCount += j == 1;
-                    oneCount += k == 1;
-                    oneCount += l == 1;
-                    if (oneCount < 2) {
-                        int cubeID = i * 27 + j * 9 + k * 3 + l;
-                        cubeIDs.push_back(cubeID);
-                    }
-                }
-            }
-        }
-    }
-    return cubeIDs;
-}
 
 const std::vector<int> testIDs() {
     std::vector<int> cubeIDs;
@@ -70,10 +56,13 @@ const std::vector<int> testIDs() {
     return cubeIDs;
 }
 
-void createCubeFractal(Scene& scene, glm::vec4 minCorner, float sideLength, int depth, const std::vector<int>& cubeIDs) {
+
+
+void createCubeFractal(Scene& scene, glm::vec4 minCorner, float sideLength, int depth, const std::vector<int>& cubeIDs, std::vector<int>& units) {
 
     if (depth == 0) {
         int unit = scene.Tesseract(glm::vec3(1.f));
+        units.push_back(unit);
         glm::vec4 center = minCorner + glm::vec4(sideLength / 2.f);
         scene.scale(unit, glm::vec4(sideLength));
         scene.translate(unit, center);
@@ -89,15 +78,33 @@ void createCubeFractal(Scene& scene, glm::vec4 minCorner, float sideLength, int 
                     int cubeID = i * 27 + j * 9 + k * 3 + l;
                     if (contains(cubeIDs, cubeID)) {
                         glm::vec4 newMinCorner = minCorner + glm::vec4(float(i), float(j), float(k), float(l)) * sideLength;
-                        createCubeFractal(scene, newMinCorner, sideLength, depth, cubeIDs);
+                        createCubeFractal(scene, newMinCorner, sideLength, depth, cubeIDs, units);
                     }
                 }
             }
         }
     }
-
 }
 
+int createRoom(Scene& scene, float width, float height, float length, float depth, float thickness) {
+    std::vector<int> walls;
+
+    for (int i = 0; i < 8; i++) {
+        walls.push_back(scene.Tesseract(glm::vec3(1.f)));
+    }
+
+    glm::vec4 dim(width, height, length, depth);
+    for (int i = 0; i < 8; i++) {
+        glm::vec4 scale = dim;
+        scale[i / 2] = thickness;
+        glm::vec4 translate(0.f);
+        translate[i / 2] = (float)((i % 2) * 2 - 1) * (dim[i / 2] / 2.f + thickness / 2.f);
+        scene.scale(walls[i], scale);
+        scene.translate(walls[i], translate);
+    }   
+
+    return scene.groupEntities(walls);
+}
 
 int main(){
     Scene scene;
@@ -108,13 +115,18 @@ int main(){
 
 
     //int unit = scene.Tesseract(glm::vec3(1.f));
+    std::vector<int> units;
 
-    createCubeFractal(scene, glm::vec4(-0.5f), 1.f, 3, getTwoOnes());
+    createCubeFractal(scene, glm::vec4(-5.f), 10.f, 2, getCubeIDs(2, 0), units);
+    int fractal = scene.groupEntities(units);
+    scene.rotate(fractal, 1, 1, 1, 1, 0.f);
 
- 
+    //int group = scene.groupEntities();
+    //scene.rotate(group, 1, 1, 1, 1, 0.f);
+
 
     
-    //scene.translate(tesseract, glm::vec4(0.f, 0.f, 0.f, 1.f));
+    //scene.translate(tesseract, glm::vec4(0.f, 0., 0.f, 1.f));
 
     //scene.Cube(glm::vec3(1.f));
     //scene.rotate(scene.Cube(glm::vec3(1.f)), glm::vec3(1.f), 30.f);

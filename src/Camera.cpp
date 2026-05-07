@@ -13,7 +13,7 @@ Camera::Camera(){
     anaVector = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
 
     lastMousePos = glm::vec2(0.0f, 0.0f);
-    sensitivity = 0.5f;
+    sensitivity = 5.f;
     fov = glm::radians(90.0f);
 }
 

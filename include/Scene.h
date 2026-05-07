@@ -26,7 +26,9 @@ class Scene{
     struct Instance {
         glm::vec4 currTranslate = glm::vec4(0.f);
         glm::vec4 currScale = glm::vec4(1.f);
-        Rotor currRotation;
+        glm::mat4 currRotation = glm::mat4(1.f);
+        
+        int parentID = -1;
     };
 
     struct ConvertedInstance {
@@ -36,6 +38,8 @@ class Scene{
 
     std::vector<Vertex> vertices;
     std::vector<Instance> instances;
+
+    const int MAX_VERTICES = 1000000000 / sizeof(Vertex);
 
     Camera cam;
 
@@ -52,6 +56,8 @@ class Scene{
 
     glm::vec4 crossProduct4D(glm::vec4, glm::vec4, glm::vec4);
     void correctWindingOrder(std::vector<Vertex>& vertexData, glm::vec4 center = glm::vec4(0.f));
+
+    void updateFromParent(int, glm::mat4&, glm::vec4&);
 
     public:
     Scene();
@@ -70,6 +76,8 @@ class Scene{
     void rotate(int, int, int, int, int, float);
 
     int getNumTetrahedrons() { return vertices.size() / 4; }
+
+    int groupEntities(std::vector<int> entities = {});
     
 
     //Entity Factory Functions
