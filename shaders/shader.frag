@@ -19,7 +19,7 @@ void main(){
     distance = distance < 1.f ? 1.f : distance;
     float intensity = 10.f * dotProduct / (distance * distance);
 
-    vec3 color = texCoord.rgb;
+    vec3 color = fragColor.rgb;
     outColor = vec4(color * (intensity + ambient), 1.f);
     clamp(outColor, 0.f, 1.f);
  

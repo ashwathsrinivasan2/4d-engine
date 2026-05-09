@@ -119,7 +119,12 @@ int main(){
 
     createCubeFractal(scene, glm::vec4(-5.f), 10.f, 2, getCubeIDs(2, 0), units);
     int fractal = scene.groupEntities(units);
-    scene.rotate(fractal, 1, 1, 1, 1, 0.f);
+    scene.rotate(fractal, 2, glm::radians(45.f));
+    scene.rotate(fractal, 4, asin(1.f / sqrt(3.f)));
+    scene.rotate(fractal, 5, glm::radians(30.f));
+
+    int room = createRoom(scene, 80.f, 8.f, 80.f, 80.f, 0.2f);
+    scene.translate(room, glm::vec4(0.f, -2.f, 0.f, 0.f));
 
     //int group = scene.groupEntities();
     //scene.rotate(group, 1, 1, 1, 1, 0.f);

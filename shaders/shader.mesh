@@ -63,8 +63,8 @@ Vertex getInterpolatedVertex(uint firstIndex, uint secondIndex, mat4 model, vec4
     vec4 aWorld = model * vA.position + modelTranslate;
     vec4 bWorld = model * vB.position + modelTranslate;
 
-    vec4 aPos = ubo.view * aWorld + ubo.viewTranslate;
-    vec4 bPos = ubo.view * bWorld + ubo.viewTranslate;
+    vec4 aPos = ubo.view * (aWorld + ubo.viewTranslate);
+    vec4 bPos = ubo.view * (bWorld + ubo.viewTranslate);
 
 
     //get vertex differences for each attribute

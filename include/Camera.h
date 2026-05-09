@@ -20,7 +20,8 @@ class Camera{
 
     float maxPitch = 89.0f;
     float minPitch = -89.0f;
-    float currPitch = 0.0f;
+
+    float rotationPlanes[6];
 
     //modes
     bool fpvMode = false;
@@ -28,6 +29,9 @@ class Camera{
 
 
     float currYaw = 0.0f;
+
+    glm::mat4 getRotationMatrix();
+    void orthonormalize();
     
     public:
     Camera();
@@ -46,6 +50,8 @@ class Camera{
     void moveRight(float);
     void moveAna(float);
     void moveKata(float);
+    
+    void rotate(int, float);
 
     void zoom(float);
     void setSensitivity(float);

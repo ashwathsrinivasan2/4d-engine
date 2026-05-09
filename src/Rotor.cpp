@@ -1,175 +1,139 @@
 #include "Rotor.h"
 #include <cmath>
-#include <iostream>
 
-Rotor::Rotor(float a, float xy, float xz, float xw, float yz, float yw, float zw){
-    components[0] = a;
-    components[1] = xy;
-    components[2] = xz;
-    components[3] = xw;
-    components[4] = yz;
-    components[5] = yw;
-    components[6] = zw;
-    normalize();
+Rotor::Rotor(float s, float xy, float xz, float xw, float yz, float yw, float zw, float xyzw) {
+	this->s = s;
+	this->xy = xy;
+	this->xz = xz;
+	this->xw = xw;
+	this->yz = yz;
+	this->yw = yw;
+	this->zw = zw;
+	this->xyzw = xyzw;
 }
 
-Rotor Rotor::getReverse(){
-    Rotor reverse(
-        components[0],
-        -components[1],
-        -components[2],
-        -components[3],
-        -components[4],
-        -components[5],
-        -components[6]
-    );
+Rotor::Rotor(int planeID, float radians) {
+	s = cos(radians / 2.f);
+	xy = 0.f;
+	xz = 0.f;
+	xw = 0.f;
+	yz = 0.f;
+	yw = 0.f;
+	zw = 0.f;
+	xyzw = 0.f;
 
-    return reverse;
+	float bVal = sin(radians / 2.f);
+	switch (planeID) {
+	case 0:
+		xy = bVal;
+		break;
+	case 1:
+		xz = bVal;
+		break;
+	case 2:
+		xw = bVal;
+		break;
+	case 3:
+		yz = bVal;
+		break;
+	case 4:
+		yw = bVal;
+		break;
+	case 5:
+		zw = bVal;
+		break;
+	default:
+		s = 1.f;
+	}
 }
 
-bool Rotor::checkNormalized(){
-    float length = 0.f;
-    for(int i = 0; i < 7; i++){
-        length += components[i] * components[i];
-    }
-    float error = std::sqrtf(length) - 1.f;
-    return error < 0.0000001f && error > -0.0000001f;
+void Rotor::normalize() {
+	float magnitude = sqrt(s * s + xy * xy + xz * xz + xw * xw + yz * yz + yw * yw + zw * zw + xyzw * xyzw);
+	s /= magnitude;
+	xy /= magnitude;
+	xz /= magnitude;
+	xw /= magnitude;
+	yz /= magnitude;
+	yw /= magnitude;
+	zw /= magnitude;
+	xyzw /= magnitude;
 }
 
-glm::vec4 Rotor::rotateVec(glm::vec4 vec){
-    return vecTimesRotor(rotorTimesVec(vec, *this), getReverse());
+glm::vec4 Rotor::apply(glm::vec4 v) {
+	//(r.s, r.xy, r.xz, r.xw, r.yz, r.yw, r.zw, r.xyzw) * (v.x, v.y, v.z, v.w) = 
+	float mx = s * v.x + xy * v.y + xz * v.z + xw * v.w;
+	float my = s * v.y - xy * v.x + yz * v.z + yw * v.w;
+	float mz = s * v.z - xz * v.x - yz * v.y + zw * v.w;
+	float mw = s * v.w - xw * v.x - yw * v.y - zw * v.z;
+	float mxyz = xy * v.z - xz * v.y + yz * v.x + xyzw * v.w;
+	float mxyw = xy * v.w - xw * v.y + yw * v.x - xyzw * v.z;
+	float mxzw = xz * v.w - xw * v.z + zw * v.x + xyzw * v.y;
+	float myzw = yz * v.w - yw * v.z + zw * v.y - xyzw * v.x;
+
+	//(mx, my, mz, mw, mxyz, mxyw, mxzw, myzw) * (r.s, -r.xy, -r.xz, -r.xw, -r.yz, -r.yw, -r.zw, r.xyzw)
+	float x = mx * s + my * xy + mz * xz + mw * xw + mxyz * yz + mxyw * yw + mxzw * zw + myzw * xyzw;
+	float y = -mx * xy + my * s + mz * yz + mw * yw - mxyz * xz - mxyw * xw - mxzw * xyzw + myzw * zw;
+	float z = -mx * xz - my * yz + mz * s + mw * zw + mxyz * xy + mxyw * xyzw - mxzw * xw - myzw * yw;
+	float w = -mx * xw - my * yw - mz * zw + mw * s - mxyz * xyzw + mxyw * xy + mxzw * xz + myzw * yz;
+	float xyz = -mx * yz + my * xz - mz * xy - mw * xyzw + mxyz * s + mxyw * zw - mxzw * yw + myzw * xw;
+	float xyw = -mx * yw + my * xw + mz * xyzw - mw * xy - mxyz * zw + mxyw * s + mxzw * yz - myzw * xz;
+	float xzw = -mx * zw - my * xyzw + mz * xw - mw * xz + mxyz * yw - mxyw * yz + mxzw * s + myzw * xy;
+	float yzw = mx * xyzw - my * zw + mz * yw - mw * yz - mxyz * xw + mxyw * xz - mxzw * xy + myzw * s;
+
+	glm::vec4 res(x, y, z, w);
+	return res;
 }
 
-Rotor Rotor::operator*(Rotor& other){
-    int component;
-    int sign;
-    float product;
-    float newComponents[7] = {0.f};
+void Rotor::rotate(Rotor& a) {
 
-    for(int i = 0; i < 7; i++){
-        for(int j = 0; j < 7; j++){
-            sign = 1;
-            component = termLookupTable[i][j];
-            if(component != 0){
-                if(component < 0){
-                    sign = -1;
-                    component *= -1;
-                }
-                component--;
-                product = sign * components[i] * other.getComponent(j);
-                newComponents[component] += product;
-            }
-        }
-    }
+	float as = a.getScalar();
+	float axy = a.getXY();
+	float axz = a.getXZ();
+	float axw = a.getXW();
+	float ayz = a.getYZ();
+	float ayw = a.getYW();
+	float azw = a.getZW();
+	float axyzw = a.getXYZW();
 
-    Rotor result(newComponents[0], newComponents[1], newComponents[2], newComponents[3], newComponents[4], newComponents[5], newComponents[6]);
-    return result;
+
+	float tempS = as * s - axy * xy - axz * xz - axw * xw - ayw * yw - azw * zw + axyzw * xyzw;
+	float tempXY = as * xy + axy * s - axz * yz - axw * yw + ayw * xw - azw * xyzw - axyzw * zw;
+	float tempXZ = as * xz + axy * yz + axz * s - axw * zw - ayw * xyzw + azw * xw + axyzw * yw;
+	float tempXW = as* xw + axy * yw + axz * zw + axw * s - ayw * xy - azw * xz - axyzw * yz;
+	float tempYZ = as* yz - axy * xz + axz * xy - axw * xyzw - ayw * zw + azw * yw - axyzw * xw;
+	float tempYW = as* yw - axy * xw + axz * xyzw + axw * xy + ayw * s - azw * yz + axyzw * xz;
+	float tempZW = as* zw - axy * xyzw - axz * xw + axw * xz + ayw * yz + azw * s - axyzw * xy;
+	float tempXYZW = as* xyzw + axy * zw - axz * yw + axw * yz - ayw * xz + azw * xy + axyzw * s;
+
+	s = tempS;
+	xy = tempXY;
+	xz = tempXZ;
+	xw = tempXW;
+	yz = tempYZ;
+	yw = tempYW;
+	zw = tempZW;
+	xyzw = tempXYZW;
+
 }
 
-Rotor Rotor::sqrtRotor(){
-    float a = components[0];
-    float b = components[1];
-    float c = components[2];
-    float d = components[3];
-    float e = components[4];
-    float f = components[5];
-    float g = components[6];
+glm::mat4 Rotor::toMatrix() {
+	normalize();
+	glm::vec4 x = apply(glm::vec4(1.f, 0.f, 0.f, 0.f));
+	glm::vec4 y = apply(glm::vec4(0.f, 1.f, 0.f, 0.f));
+	glm::vec4 z = apply(glm::vec4(0.f, 0.f, 1.f, 0.f));
+	glm::vec4 w = apply(glm::vec4(0.f, 0.f, 0.f, 1.f));
 
-    float h, i, j, k, l, m, n;
-
-
-    h = sqrt(a * a + sqrt((a * a + b * b + c * c + d * d + e * e + f * f + g * g) / 2));
-    i = b / (2 * h);
-    j = c / (2 * h);
-    k = d / (2 * h);
-    l = e / (2 * h);
-    m = f / (2 * h);
-    n = g / (2 * h);
-
-    Rotor result(h, i, j, k, l, m, n);
-    return result;
+	return glm::mat4(x, y, z, w);
 }
 
-void Rotor::normalize(){
-    float length = 0.f;
-    for(int i = 0; i < 7; i++){
-        length += components[i] * components[i];
-    }
-    if(length == 0.f) {
-        reset();
-    } else {
-        length = std::sqrtf(length);
-
-        for(int i = 0; i < 7; i++){
-            components[i] /= length;
-        }
-    }
+void Rotor::reset() {
+	s = 1.f;
+	xy = 0.f;
+	xz = 0.f;
+	xw = 0.f;
+	yz = 0.f;
+	yw = 0.f;
+	zw = 0.f;
+	xyzw = 0.f;
 }
 
-glm::vec4 Rotor::vecTimesRotor(glm::vec4 v, Rotor r){
-    float a = v.x;
-    float b = v.y;
-    float c = v.z;
-    float d = v.w;
-
-    float s = r.getComponent(0);
-    float e = r.getComponent(1);
-    float f = r.getComponent(2);
-    float g = r.getComponent(3);
-    float h = r.getComponent(4);
-    float i = r.getComponent(5);
-    float j = r.getComponent(6);
-
-    float x = a * s - b * e - c * f - d * g;
-    float y = a * e + b * s - c * h - d * i;
-    float z = a * f + b * h + c * s - d * j;
-    float w = a * g + b * i + c * j + d * s;
-
-    glm::vec4 result = glm::vec4(x, y, z, w);
-    return result;
-}
-
-glm::vec4 Rotor::rotorTimesVec(glm::vec4 v, Rotor r){
-    float a = v.x;
-    float b = v.y;
-    float c = v.z;
-    float d = v.w;
-
-    float s = r.getComponent(0);
-    float e = r.getComponent(1);
-    float f = r.getComponent(2);
-    float g = r.getComponent(3);
-    float h = r.getComponent(4);
-    float i = r.getComponent(5);
-    float j = r.getComponent(6);
-
-    float x = a * s + b * e + c * f + d * g;
-    float y = -a * e + b * s + c * h + d * i;
-    float z = -a * f - b * h + c * s + d * j;
-    float w = -a * g - b * i - c * j + d * s;
-
-    glm::vec4 result = glm::vec4(x, y, z, w);
-    return result;
-}
-
-glm::mat4 Rotor::toMatrix(){
-    glm::vec4 x(1.f, 0.f, 0.f, 0.f);
-    glm::vec4 y(0.f, 1.f, 0.f, 0.f);
-    glm::vec4 z(0.f, 0.f, 1.f, 0.f);
-    glm::vec4 w(0.f, 0.f, 0.f, 1.f);
-
-    glm::mat4 mat(1.f);
-    mat[0] = glm::normalize(rotateVec(x));
-    mat[1] = glm::normalize(rotateVec(y));
-    mat[2] = glm::normalize(rotateVec(z));
-    mat[3] = glm::normalize(rotateVec(w));
-
-    return mat;
-}
-
-void Rotor::reset(){
-    for(int i = 0;i < 7; i++){
-        components[i] = 0.f;
-    }
-    components[0] = 1.f;
-}

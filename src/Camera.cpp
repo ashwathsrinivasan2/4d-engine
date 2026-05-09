@@ -15,6 +15,8 @@ Camera::Camera(){
     lastMousePos = glm::vec2(0.0f, 0.0f);
     sensitivity = 5.f;
     fov = glm::radians(90.0f);
+
+    float rotationPlanes[6] = { 0.f, 0.f, 0.f, 0.f, 0.f, 0.f };
 }
 
 
@@ -26,7 +28,7 @@ glm::mat4 Camera::getViewMatrix(){
     view[2] = -viewVector;
     view[3] = anaVector;
 
-    
+    view = glm::transpose(view);
 
     return view;
 }
@@ -119,6 +121,78 @@ void Camera::moveKata(float time) {
     }
 }
 
+void Camera::orthonormalize() {
+    viewVector = glm::normalize(viewVector);
+    rightVector = glm::normalize(rightVector - glm::dot(rightVector, viewVector) * viewVector);
+    upVector = glm::normalize(upVector - glm::dot(upVector, viewVector) * viewVector
+        - glm::dot(upVector, rightVector) * rightVector);
+    anaVector = glm::normalize(anaVector - glm::dot(anaVector, viewVector) * viewVector
+        - glm::dot(anaVector, rightVector) * rightVector
+        - glm::dot(anaVector, upVector) * upVector);
+}
+
+glm::mat4 Camera::getRotationMatrix() {
+
+    glm::mat4 xy(
+        glm::cos(rotationPlanes[0]), glm::sin(rotationPlanes[0]), 0.f, 0.f,
+        -glm::sin(rotationPlanes[0]), glm::cos(rotationPlanes[0]), 0.f, 0.f,
+        0.f, 0.f, 1.f, 0.f,
+        0.f, 0.f, 0.f, 1.f
+    );
+
+    glm::mat4 xz(
+        glm::cos(rotationPlanes[1]), 0.f, glm::sin(rotationPlanes[1]), 0.f,
+        0.f, 1.f, 0.f, 0.f,
+        glm::sin(rotationPlanes[1]), 0.f, -glm::cos(rotationPlanes[1]), 0.f,
+        0.f, 0.f, 0.f, 1.f
+    );
+
+    glm::mat4 xw(
+        glm::cos(rotationPlanes[2]), 0.f, 0.f, glm::sin(rotationPlanes[2]),
+        0.f, 1.f, 0.f, 0.f,
+        0.f, 0.f, 1.f, 0.f,
+        -glm::sin(rotationPlanes[2]), 0.f, 0.f, glm::cos(rotationPlanes[2])
+    );
+
+    glm::mat4 yz(
+        1.f, 0.f, 0.f, 0.f,
+        0.f, glm::cos(rotationPlanes[3]), glm::sin(rotationPlanes[3]), 0.f,
+        0.f, -glm::sin(rotationPlanes[3]), glm::cos(rotationPlanes[3]), 0.f,
+        0.f, 0.f, 0.f, 1.f
+    );
+
+    glm::mat4 yw(
+        1.f, 0.f, 0.f, 0.f,
+        0.f, glm::cos(rotationPlanes[4]), 0.f, glm::sin(rotationPlanes[4]),
+        0.f, 0.f, 1.f, 0.f,
+        0.f, -glm::sin(rotationPlanes[4]), 0.f, glm::cos(rotationPlanes[4])
+    );
+
+    glm::mat4 zw(
+        1.f, 0.f, 0.f, 0.f,
+        0.f, 1.f, 0.f, 0.f,
+        0.f, 0.f, glm::cos(rotationPlanes[5]), glm::sin(rotationPlanes[5]),
+        0.f, 0.f, -glm::sin(rotationPlanes[5]), glm::cos(rotationPlanes[5])
+    );
+
+    return zw * yw * yz * xw * xz * xy;
+}
+
+void Camera::rotate(int planeID, float amount) {
+    if (planeID > 0 && planeID < 6) {
+        rotationPlanes[planeID] = amount;
+    }
+
+    glm::mat4 rot = getRotationMatrix();
+    rotationPlanes[planeID] = 0.f;
+    rightVector = rot * rightVector;
+    viewVector = rot * viewVector;
+    upVector = rot * upVector;
+    anaVector = rot * anaVector;
+    orthonormalize();
+}
+
+
 void Camera::zoom(float newFOV){
     fov = newFOV;
 }
@@ -132,8 +206,10 @@ void Camera::reset(){
     viewVector = glm::vec4(0.0f, 0.0f, -1.0f, 0.0f);
     upVector = glm::vec4(0.0f, 1.0f, 0.0f, 0.0f);
     anaVector = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-    currPitch = 0.0f;
-    currYaw = 0.0f;
+
+    for (int i = 0; i < 6; i++) {
+        rotationPlanes[i] = 0.f;
+    }
 }
 
 glm::vec4 Camera::getViewVector(){

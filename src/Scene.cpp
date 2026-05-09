@@ -41,7 +41,7 @@ void Scene::updateFromParent(int index, glm::mat4& model, glm::vec4& modelTransl
         scale[i][i] = instances[index].currScale[i];
     }
 
-    glm::mat4 pModel = instances[index].currRotation * scale;
+    glm::mat4 pModel = instances[index].currRotation.toMatrix() * scale;
     glm::vec4 pModelTranslate = instances[index].currTranslate;
 
     model = pModel * model;
@@ -103,26 +103,9 @@ void Scene::scale(int entityIndex, glm::vec4 scale)
     instances[entityIndex].currScale *= scale;
 }
 
-void Scene::rotate(int entityIndex, int x, int y, int z, int w, float radians) {
-    float a = glm::radians(45.f);
-    float b = asin(1.f / sqrt(3.f));
-    float c = glm::radians(30.f);
-
-    glm::mat4 rotXW(1.f);
-    rotXW[0][0] = cos(a); rotXW[3][0] = -sin(a);
-    rotXW[0][3] = sin(a); rotXW[3][3] = cos(a);
-
-    glm::mat4 rotYW(1.f);
-    rotYW[1][1] = cos(b); rotYW[3][1] = -sin(b);
-    rotYW[1][3] = sin(b); rotYW[3][3] = cos(b);
-
-    glm::mat4 rotZW(1.f);
-    rotZW[2][2] = cos(c); rotZW[3][2] = -sin(c);
-    rotZW[2][3] = sin(c); rotZW[3][3] = cos(c);
-
-    glm::mat4 rotation = rotZW * rotYW * rotXW;
-
-    instances[entityIndex].currRotation = rotation;
+void Scene::rotate(int entityIndex, int planeID, float radians) {
+    Rotor newRotation(planeID, radians);
+    instances[entityIndex].currRotation.rotate(newRotation);
 }
 
 int Scene::groupEntities(std::vector<int> entities) {

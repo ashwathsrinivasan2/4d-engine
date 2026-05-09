@@ -4,6 +4,7 @@ Application::Application(Scene* scene){
     this->scene = scene;
     createWindow();
     renderer.initialize(window, scene);
+
 }
 
 Application::~Application(){
@@ -24,6 +25,9 @@ void Application::createWindow(){
 
     glfwSetWindowUserPointer(window, this);
     glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetCursorPos(window, 0, 0);
 }
 
 void Application::run(){
@@ -71,4 +75,17 @@ void Application::handleInput(float time){
         scene->getCamera().moveAna(time);
     }
 
+    static bool firstFrame = true;
+    if (firstFrame) {
+        glfwSetCursorPos(window, 0, 0);
+        firstFrame = false;
+    }
+    else {
+        double xpos, ypos;
+        glfwGetCursorPos(window, &xpos, &ypos);
+        glfwSetCursorPos(window, 0, 0);
+
+        scene->getCamera().rotate(1, (float)xpos * 0.001f);
+        scene->getCamera().rotate(3, (float)ypos * 0.001f);
+    }
 }

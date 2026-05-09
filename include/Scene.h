@@ -26,7 +26,7 @@ class Scene{
     struct Instance {
         glm::vec4 currTranslate = glm::vec4(0.f);
         glm::vec4 currScale = glm::vec4(1.f);
-        glm::mat4 currRotation = glm::mat4(1.f);
+        Rotor currRotation;
         
         int parentID = -1;
     };
@@ -73,7 +73,7 @@ class Scene{
     
     void translate(int, glm::vec4);
     void scale(int , glm::vec4);
-    void rotate(int, int, int, int, int, float);
+    void rotate(int, int, float);
 
     int getNumTetrahedrons() { return vertices.size() / 4; }
 
