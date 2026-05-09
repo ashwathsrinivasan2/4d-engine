@@ -1,5 +1,6 @@
 #include "Rotor.h"
 #include <cmath>
+#include <iostream>
 
 Rotor::Rotor(float s, float xy, float xz, float xw, float yz, float yw, float zw, float xyzw) {
 	this->s = s;
@@ -10,6 +11,30 @@ Rotor::Rotor(float s, float xy, float xz, float xw, float yz, float yw, float zw
 	this->yw = yw;
 	this->zw = zw;
 	this->xyzw = xyzw;
+}
+
+Rotor::Rotor(glm::vec4 a, glm::vec4 b, float radians) {
+
+	float bxy = a.x * b.y - a.y * b.x;
+	float bxz = a.x * b.z - a.z * b.x;
+	float bxw = a.x * b.w - a.w * b.x;
+	float byz = a.y * b.z - a.z * b.y;
+	float byw = a.y * b.w - a.w * b.y;
+	float bzw = a.z * b.w - a.w * b.z;
+
+	float mag = sqrt(bxy * bxy + bxz * bxz + bxw * bxw + byz * byz + byw * byw + bzw * bzw);
+	bxy /= mag; bxz /= mag; bxw /= mag;
+	byz /= mag; byw /= mag; bzw /= mag;
+
+	float sinHalf = sin(radians / 2.f);
+	s = cos(radians / 2.f);
+	xy = sinHalf * bxy;
+	xz = sinHalf * bxz;
+	xw = sinHalf * bxw;
+	yz = sinHalf * byz;
+	yw = sinHalf * byw;
+	zw = sinHalf * bzw;
+	xyzw = 0.f;
 }
 
 Rotor::Rotor(int planeID, float radians) {
@@ -81,6 +106,7 @@ glm::vec4 Rotor::apply(glm::vec4 v) {
 	float yzw = mx * xyzw - my * zw + mz * yw - mw * yz - mxyz * xw + mxyw * xz - mxzw * xy + myzw * s;
 
 	glm::vec4 res(x, y, z, w);
+	glm::normalize(res);
 	return res;
 }
 
@@ -95,15 +121,14 @@ void Rotor::rotate(Rotor& a) {
 	float azw = a.getZW();
 	float axyzw = a.getXYZW();
 
-
-	float tempS = as * s - axy * xy - axz * xz - axw * xw - ayw * yw - azw * zw + axyzw * xyzw;
-	float tempXY = as * xy + axy * s - axz * yz - axw * yw + ayw * xw - azw * xyzw - axyzw * zw;
-	float tempXZ = as * xz + axy * yz + axz * s - axw * zw - ayw * xyzw + azw * xw + axyzw * yw;
-	float tempXW = as* xw + axy * yw + axz * zw + axw * s - ayw * xy - azw * xz - axyzw * yz;
-	float tempYZ = as* yz - axy * xz + axz * xy - axw * xyzw - ayw * zw + azw * yw - axyzw * xw;
-	float tempYW = as* yw - axy * xw + axz * xyzw + axw * xy + ayw * s - azw * yz + axyzw * xz;
-	float tempZW = as* zw - axy * xyzw - axz * xw + axw * xz + ayw * yz + azw * s - axyzw * xy;
-	float tempXYZW = as* xyzw + axy * zw - axz * yw + axw * yz - ayw * xz + azw * xy + axyzw * s;
+	float tempS = as * s - axy * xy - axz * xz - axw * xw - ayz * yz - ayw * yw - azw * zw + axyzw * xyzw;
+	float tempXY = as * xy + axy * s - axz * yz - axw * yw + ayw * xw + ayz * xz - azw * xyzw - axyzw * zw;
+	float tempXZ = as * xz + axy * yz + axz * s - axw * zw - ayz * xy - ayw * xyzw + azw * xw + axyzw * yw;
+	float tempXW = as* xw + axy * yw + axz * zw + axw * s - ayz * xyzw - ayw * xy - azw * xz - axyzw * yz;
+	float tempYZ = as * yz - axy * xz + axz * xy - axw * xyzw + ayz * s - ayw * zw + azw * yw - axyzw * xw;
+	float tempYW = as* yw - axy * xw + axz * xyzw + axw * xy + ayz * zw + ayw * s - azw * yz + axyzw * xz;
+	float tempZW = as* zw - axy * xyzw - axz * xw + axw * xz - ayz * yw + ayw * yz + azw * s - axyzw * xy;
+	float tempXYZW = as* xyzw + axy * zw - axz * yw + axw * yz + ayz * xw - ayw * xz + azw * xy + axyzw * s;
 
 	s = tempS;
 	xy = tempXY;
@@ -113,11 +138,10 @@ void Rotor::rotate(Rotor& a) {
 	yw = tempYW;
 	zw = tempZW;
 	xyzw = tempXYZW;
-
+	normalize();
 }
 
 glm::mat4 Rotor::toMatrix() {
-	normalize();
 	glm::vec4 x = apply(glm::vec4(1.f, 0.f, 0.f, 0.f));
 	glm::vec4 y = apply(glm::vec4(0.f, 1.f, 0.f, 0.f));
 	glm::vec4 z = apply(glm::vec4(0.f, 0.f, 1.f, 0.f));
@@ -135,5 +159,9 @@ void Rotor::reset() {
 	yw = 0.f;
 	zw = 0.f;
 	xyzw = 0.f;
+}
+
+void Rotor::print() {
+	std::cout << s << ", " << xy << ", " << xz << ", " << xw << ", " << yz << ", " << yw << ", " << zw << ", " << xyzw << std::endl;
 }
 

@@ -61,12 +61,12 @@ void Camera::moveForward(float time){
             eye += (time * viewVector);
         }
     } else {
-        eye += (time * viewVector);
+        eye += (time * glm::vec4(viewVector.x, 0.f, viewVector.z, viewVector.w));
     }
 }
 void Camera::moveBackward(float time){
     time *= sensitivity;
-    eye -= (time * viewVector);
+    eye -= (time * glm::vec4(viewVector.x, 0.f, viewVector.z, viewVector.w));
 }
 void Camera::moveLeft(float time){
     time *= sensitivity;
@@ -131,64 +131,44 @@ void Camera::orthonormalize() {
         - glm::dot(anaVector, upVector) * upVector);
 }
 
-glm::mat4 Camera::getRotationMatrix() {
-
-    glm::mat4 xy(
-        glm::cos(rotationPlanes[0]), glm::sin(rotationPlanes[0]), 0.f, 0.f,
-        -glm::sin(rotationPlanes[0]), glm::cos(rotationPlanes[0]), 0.f, 0.f,
-        0.f, 0.f, 1.f, 0.f,
-        0.f, 0.f, 0.f, 1.f
-    );
-
-    glm::mat4 xz(
-        glm::cos(rotationPlanes[1]), 0.f, glm::sin(rotationPlanes[1]), 0.f,
-        0.f, 1.f, 0.f, 0.f,
-        glm::sin(rotationPlanes[1]), 0.f, -glm::cos(rotationPlanes[1]), 0.f,
-        0.f, 0.f, 0.f, 1.f
-    );
-
-    glm::mat4 xw(
-        glm::cos(rotationPlanes[2]), 0.f, 0.f, glm::sin(rotationPlanes[2]),
-        0.f, 1.f, 0.f, 0.f,
-        0.f, 0.f, 1.f, 0.f,
-        -glm::sin(rotationPlanes[2]), 0.f, 0.f, glm::cos(rotationPlanes[2])
-    );
-
-    glm::mat4 yz(
-        1.f, 0.f, 0.f, 0.f,
-        0.f, glm::cos(rotationPlanes[3]), glm::sin(rotationPlanes[3]), 0.f,
-        0.f, -glm::sin(rotationPlanes[3]), glm::cos(rotationPlanes[3]), 0.f,
-        0.f, 0.f, 0.f, 1.f
-    );
-
-    glm::mat4 yw(
-        1.f, 0.f, 0.f, 0.f,
-        0.f, glm::cos(rotationPlanes[4]), 0.f, glm::sin(rotationPlanes[4]),
-        0.f, 0.f, 1.f, 0.f,
-        0.f, -glm::sin(rotationPlanes[4]), 0.f, glm::cos(rotationPlanes[4])
-    );
-
-    glm::mat4 zw(
-        1.f, 0.f, 0.f, 0.f,
-        0.f, 1.f, 0.f, 0.f,
-        0.f, 0.f, glm::cos(rotationPlanes[5]), glm::sin(rotationPlanes[5]),
-        0.f, 0.f, -glm::sin(rotationPlanes[5]), glm::cos(rotationPlanes[5])
-    );
-
-    return zw * yw * yz * xw * xz * xy;
-}
-
 void Camera::rotate(int planeID, float amount) {
-    if (planeID > 0 && planeID < 6) {
-        rotationPlanes[planeID] = amount;
-    }
+    glm::vec4 vA;
+    glm::vec4 vB;
 
-    glm::mat4 rot = getRotationMatrix();
-    rotationPlanes[planeID] = 0.f;
-    rightVector = rot * rightVector;
-    viewVector = rot * viewVector;
-    upVector = rot * upVector;
-    anaVector = rot * anaVector;
+    switch (planeID) {
+    case 0:
+        vA = rightVector;
+        vB = upVector;
+        break;
+    case 1:
+        vA = glm::vec4(1.f, 0.f, 0.f, 0.f);
+        vB = glm::vec4(0.f, 0.f, -1.f, 0.f);
+        break;
+    case 2:
+        vA = rightVector;
+        vB = anaVector;
+        break;
+    case 3:
+        vA = upVector;
+        vB = viewVector;
+        break;
+    case 4:
+        vA = upVector;
+        vB = anaVector;
+        break;
+    case 5:
+        vA = viewVector;
+        vB = anaVector;
+        break;
+    default:
+        return;
+    }
+    Rotor newRotation(vA, vB, amount);
+    currRotation.rotate(newRotation);
+    rightVector = currRotation.apply(glm::vec4(1.f, 0.f, 0.f, 0.f));
+    viewVector = currRotation.apply(glm::vec4(0.f, 0.f, -1.f, 0.f));
+    upVector = currRotation.apply(glm::vec4(0.f, 1.f, 0.f, 0.f));
+    anaVector = currRotation.apply(glm::vec4(0.f, 0.f, 0.f, 1.f));
     orthonormalize();
 }
 
@@ -204,6 +184,7 @@ void Camera::setSensitivity(float newSens){
 void Camera::reset(){
     eye = spawn;
     viewVector = glm::vec4(0.0f, 0.0f, -1.0f, 0.0f);
+    rightVector = glm::vec4(1.f, 0.f, 0.f, 0.f);
     upVector = glm::vec4(0.0f, 1.0f, 0.0f, 0.0f);
     anaVector = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
 

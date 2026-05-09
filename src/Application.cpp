@@ -77,6 +77,8 @@ void Application::handleInput(float time){
 
     static bool firstFrame = true;
     if (firstFrame) {
+        double xpos, ypos;
+        glfwGetCursorPos(window, &xpos, &ypos); // discard initial position
         glfwSetCursorPos(window, 0, 0);
         firstFrame = false;
     }
@@ -86,6 +88,6 @@ void Application::handleInput(float time){
         glfwSetCursorPos(window, 0, 0);
 
         scene->getCamera().rotate(1, (float)xpos * 0.001f);
-        scene->getCamera().rotate(3, (float)ypos * 0.001f);
+        scene->getCamera().rotate(3, -(float)ypos * 0.001f);
     }
 }

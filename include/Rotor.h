@@ -18,6 +18,7 @@ class Rotor{
 
     public:
     Rotor(float a = 1.f, float xy = 0.f, float xz = 0.f, float xw = 0.f, float yz = 0.f, float yw = 0.f, float zw = 0.f, float xyzw = 0.f);
+    Rotor(glm::vec4, glm::vec4, float);
     Rotor(int planeID, float radians);
 
     void setScalar(float val)   {s = val;}
@@ -44,6 +45,8 @@ class Rotor{
     glm::mat4 toMatrix();
 
     void reset();
+
+    void print();
 };
 
 #endif

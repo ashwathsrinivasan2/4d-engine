@@ -3,6 +3,7 @@
 
 #include <glm/glm.hpp>
 #include "string"
+#include "Rotor.h"
 
 //creates view and projection matrices
 class Camera{
@@ -27,10 +28,11 @@ class Camera{
     bool fpvMode = false;
     bool orbitMode = false;
 
+    Rotor currRotation;
+
 
     float currYaw = 0.0f;
 
-    glm::mat4 getRotationMatrix();
     void orthonormalize();
     
     public:
