@@ -14,6 +14,7 @@ Camera::Camera(){
 
     lastMousePos = glm::vec2(0.0f, 0.0f);
     sensitivity = 5.f;
+    speed = 8.f;
     fov = glm::radians(90.0f);
 
     float rotationPlanes[6] = { 0.f, 0.f, 0.f, 0.f, 0.f, 0.f };
@@ -54,7 +55,7 @@ void Camera::setMode(std::string mode){
 }
 
 void Camera::moveForward(float time){
-    time *= sensitivity;
+    time *= speed;
     if(orbitMode){
         float distance = glm::length(eye);
         if(distance > 0.001f){
@@ -65,11 +66,11 @@ void Camera::moveForward(float time){
     }
 }
 void Camera::moveBackward(float time){
-    time *= sensitivity;
+    time *= speed;
     eye -= (time * glm::vec4(viewVector.x, 0.f, viewVector.z, viewVector.w));
 }
 void Camera::moveLeft(float time){
-    time *= sensitivity;
+    time *= speed;
     if(fpvMode){
         eye -= (time * rightVector);
     } else {
@@ -85,7 +86,7 @@ void Camera::moveLeft(float time){
     }
 }
 void Camera::moveRight(float time){  
-    time *= sensitivity;
+    time *= speed;
     if(fpvMode){
         eye += (time * rightVector);
     } else {
@@ -102,7 +103,7 @@ void Camera::moveRight(float time){
 }
 
 void Camera::moveAna(float time) {
-    time *= sensitivity;
+    time *= speed;
     if (fpvMode) {
         eye += (time * anaVector);
     }
@@ -112,7 +113,7 @@ void Camera::moveAna(float time) {
 }
 
 void Camera::moveKata(float time) {
-    time *= sensitivity;
+    time *= speed;
     if (fpvMode) {
         eye -= (time * anaVector);
     }
@@ -141,12 +142,14 @@ void Camera::rotate(int planeID, float amount) {
         vB = upVector;
         break;
     case 1:
-        vA = glm::vec4(1.f, 0.f, 0.f, 0.f);
-        vB = glm::vec4(0.f, 0.f, -1.f, 0.f);
+        vA = glm::vec4(rightVector.x, 0.f, rightVector.z, rightVector.w);
+        vB = glm::vec4(viewVector.x, 0.f, viewVector.z, viewVector.w);
         break;
     case 2:
         vA = rightVector;
         vB = anaVector;
+        vA.y = 0.f;
+        vB.y = 0.f;
         break;
     case 3:
         vA = upVector;
@@ -159,6 +162,8 @@ void Camera::rotate(int planeID, float amount) {
     case 5:
         vA = viewVector;
         vB = anaVector;
+        vA.y = 0.f;
+        vB.y = 0.f;
         break;
     default:
         return;

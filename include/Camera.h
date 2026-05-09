@@ -18,6 +18,7 @@ class Camera{
     glm::vec4 spawn = glm::vec4(0.f);
     float fov;
     float sensitivity;
+    float speed;
 
     float maxPitch = 89.0f;
     float minPitch = -89.0f;

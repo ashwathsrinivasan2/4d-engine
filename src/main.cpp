@@ -118,19 +118,13 @@ int main(){
     //int unit = scene.Tesseract(glm::vec3(1.f));
     std::vector<int> units;
 
-    Rotor a(1, 0.3f);  // XZ
-    Rotor b(3, 0.5f);  // YZ
-    a.rotate(b);
-    // print magnitude of a
-    a.print();
 
-
-    //createCubeFractal(scene, glm::vec4(-5.f), 10.f, 2, getCubeIDs(2, 0), units);
-    //int fractal = scene.groupEntities(units);
+    createCubeFractal(scene, glm::vec4(-5.f), 10.f, 2, getCubeIDs(2, 0), units);
+    int fractal = scene.groupEntities(units);
     //int fractal = scene.Tesseract(glm::vec3(1.f));
-    //scene.rotate(fractal, 2, glm::radians(45.f));
-    //scene.rotate(fractal, 4, asin(1.f / sqrt(3.f)));
-    //scene.rotate(fractal, 5, glm::radians(30.f));
+    scene.rotate(fractal, 2, glm::radians(45.f));
+    scene.rotate(fractal, 4, asin(1.f / sqrt(3.f)));
+    scene.rotate(fractal, 5, glm::radians(30.f));
     //scene.translate(fractal, glm::vec4(0.f, 0.f, 3.f, 0.f));
 
     int room = createRoom(scene, 80.f, 8.f, 80.f, 80.f, 0.2f);

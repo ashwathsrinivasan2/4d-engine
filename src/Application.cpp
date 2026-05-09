@@ -55,6 +55,8 @@ void Application::handleInput(float time){
     keyD = glfwGetKey(window, GLFW_KEY_D);
     keyQ = glfwGetKey(window, GLFW_KEY_Q);
     keyE = glfwGetKey(window, GLFW_KEY_E);
+    mousePressed = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+    
 
     if(keyW == GLFW_PRESS){
         scene->getCamera().moveForward(time);
@@ -87,7 +89,14 @@ void Application::handleInput(float time){
         glfwGetCursorPos(window, &xpos, &ypos);
         glfwSetCursorPos(window, 0, 0);
 
-        scene->getCamera().rotate(1, (float)xpos * 0.001f);
-        scene->getCamera().rotate(3, -(float)ypos * 0.001f);
+        if (mousePressed)
+        {
+            scene->getCamera().rotate(2, (float)xpos * 0.001f);
+            scene->getCamera().rotate(5, -(float)ypos * 0.001f);
+        }
+        else {
+            scene->getCamera().rotate(1, (float)xpos * 0.001f);
+            scene->getCamera().rotate(3, -(float)ypos * 0.001f);
+        }
     }
 }
