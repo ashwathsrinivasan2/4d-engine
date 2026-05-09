@@ -168,6 +168,10 @@ void Camera::rotate(int planeID, float amount) {
     default:
         return;
     }
+
+    vA = glm::normalize(vA);
+    vB = glm::normalize(vB);
+
     Rotor newRotation(vA, vB, amount);
     currRotation.rotate(newRotation);
     rightVector = currRotation.apply(glm::vec4(1.f, 0.f, 0.f, 0.f));
