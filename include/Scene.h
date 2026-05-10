@@ -55,13 +55,13 @@ class Scene{
     }
 
     glm::vec4 crossProduct4D(glm::vec4, glm::vec4, glm::vec4);
-    void correctWindingOrder(std::vector<Vertex>& vertexData, glm::vec4 center = glm::vec4(0.f));
+    void correctWindingOrder(std::vector<Vertex>& vertexData, bool invert, glm::vec4 center = glm::vec4(0.f));
 
     void updateFromParent(int, glm::mat4&, glm::vec4&);
 
     public:
     Scene();
-    int createEntity(std::vector<Vertex>);
+    int createEntity(std::vector<Vertex>, bool invert);
 
     size_t getVertexBufferSize() { return sizeof(Vertex) * vertices.size(); }
     size_t getInstanceBufferSize() { return sizeof(ConvertedInstance) * instances.size(); }
@@ -85,7 +85,7 @@ class Scene{
     //int Cylinder(glm::vec3);
     //int Sphere(glm::vec3);
 
-    int Tesseract(glm::vec3);
+    int Tesseract(glm::vec3 color = glm::vec3(1.f), bool inverted = true);
 };
 
 #endif

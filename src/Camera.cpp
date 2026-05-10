@@ -142,8 +142,10 @@ void Camera::rotate(int planeID, float amount) {
         vB = upVector;
         break;
     case 1:
-        vA = glm::vec4(rightVector.x, 0.f, rightVector.z, rightVector.w);
-        vB = glm::vec4(viewVector.x, 0.f, viewVector.z, viewVector.w);
+        vA = rightVector;
+        vB = viewVector;
+        vA.y = 0.f;
+        vB.y = 0.f;
         break;
     case 2:
         vA = rightVector;
