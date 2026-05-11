@@ -358,6 +358,12 @@ int Scene::Tesseract(glm::vec3 color, bool inverted){
 
     };
 
+    if (inverted) {
+        for (int i = 0; i < vertexData.size(); i++) {
+            vertexData[i].normal *= -1.f;
+        }
+    }
+
     std::vector<glm::vec3> minUVCorners =
     {
         {0.f, 0.5f, 0.3333f},
