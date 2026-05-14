@@ -15,12 +15,12 @@ Scene::Scene(){
 }
 
 
-int Scene::createEntity(std::vector<Vertex> vData, bool invert){
+int Scene::createEntity(std::vector<Vertex> vData, bool invert, glm::vec4 center){
 
     if((vertices.size() + vData.size()) > MAX_VERTICES) {
         throw std::runtime_error("Not enough memory to store new entity");
     }
-    correctWindingOrder(vData, invert);
+    correctWindingOrder(vData, invert, center);
     for (int i = 0; i < vData.size(); i++) {
         Vertex newVertex = vData[i];
         newVertex.instanceID.x = instances.size();
@@ -41,7 +41,7 @@ void Scene::updateFromParent(int index, glm::mat4& model, glm::vec4& modelTransl
         scale[i][i] = instances[index].currScale[i];
     }
 
-    glm::mat4 pModel = instances[index].currRotation.toMatrix() * scale;
+    glm::mat4 pModel = scale * instances[index].currRotation.toMatrix();
     glm::vec4 pModelTranslate = instances[index].currTranslate;
 
     model = pModel * model;
@@ -403,4 +403,44 @@ int Scene::Tesseract(glm::vec3 color, bool inverted){
 
 
     return createEntity(vertexData, inverted);
+}
+
+int Scene::Cube(glm::vec3 color) {
+
+    std::vector<Vertex> vertexData = {
+        { {-0.5, -0.5, -0.5, 0.5}, color, {0, 0, 0, 1}, {0.f, 0.f, 0.f} },
+        { {-0.5, 0.5, 0.5, 0.5}, color, {0, 0, 0, 1}, {0.f, 0.f, 0.f} },
+        { {0.5, -0.5, 0.5, 0.5}, color, {0, 0, 0, 1}, {0.f, 0.f, 0.f} },
+        { {0.5, 0.5, -0.5, 0.5}, color, {0, 0, 0, 1}, {0.f, 0.f, 0.f} },
+
+        { {-0.5, -0.5, -0.5, 0.5}, color, {0, 0, 0, 1}, {0.f, 0.f, 0.f} },
+        { {-0.5, -0.5, 0.5, 0.5}, color, {0, 0, 0, 1}, {0.f, 0.f, 0.f} },
+        { {-0.5, 0.5, 0.5, 0.5}, color, {0, 0, 0, 1}, {0.f, 0.f, 0.f} },
+        { {0.5, -0.5, 0.5, 0.5}, color, {0, 0, 0, 1}, {0.f, 0.f, 0.f} },
+
+        { {-0.5, -0.5, -0.5, 0.5}, color, {0, 0, 0, 1}, {0.f, 0.f, 0.f} },
+        { {-0.5, 0.5, -0.5, 0.5}, color, {0, 0, 0, 1}, {0.f, 0.f, 0.f} },
+        { {-0.5, 0.5, 0.5, 0.5}, color, {0, 0, 0, 1}, {0.f, 0.f, 0.f} },
+        { {0.5, 0.5, -0.5, 0.5}, color, {0, 0, 0, 1}, {0.f, 0.f, 0.f} },
+
+        { {-0.5, 0.5, 0.5, 0.5}, color, {0, 0, 0, 1}, {0.f, 0.f, 0.f} },
+        { {0.5, -0.5, 0.5, 0.5}, color, {0, 0, 0, 1}, {0.f, 0.f, 0.f} },
+        { {0.5, 0.5, -0.5, 0.5}, color, {0, 0, 0, 1}, {0.f, 0.f, 0.f} },
+        { {0.5, 0.5, 0.5, 0.5}, color, {0, 0, 0, 1}, {0.f, 0.f, 0.f} },
+
+        { {-0.5, -0.5, -0.5, 0.5}, color, {0, 0, 0, 1}, {0.f, 0.f, 0.f} },
+        { {0.5, -0.5, -0.5, 0.5}, color, {0, 0, 0, 1}, {0.f, 0.f, 0.f} },
+        { {0.5, -0.5, 0.5, 0.5}, color, {0, 0, 0, 1}, {0.f, 0.f, 0.f} },
+        { {0.5, 0.5, -0.5, 0.5}, color, {0, 0, 0, 1}, {0.f, 0.f, 0.f} }
+    };
+
+    for (int i = 0; i < vertexData.size(); i++) {
+        vertexData[i].pos[3] = 0.f;
+        int currIndex = 0;
+        for (int j = 0; j < 3; j++) {
+            vertexData[i].texCoord[j] = vertexData[i].pos[j] < 0.f ? 0.f : 1.f;
+        }
+    }
+
+    return createEntity(vertexData, false, glm::vec4(0.f, 0.f, 0.f, -0.5f));
 }

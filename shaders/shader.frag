@@ -17,6 +17,15 @@ float attenuation(vec4 fragPos, vec4 lightPos, float radius) {
     return (x * x) / (dist * dist + 1.0);
 }
 
+vec3 calculateTexColor(vec3 texCoord){
+    vec3 colorA = vec3(0.76, 0.60, 0.42);
+    vec3 colorB  = vec3(0.42, 0.26, 0.15);
+
+    float checker = mod(floor(worldPos.x) + floor(worldPos.y) + floor(worldPos.z), 2.0);
+    vec3 color = mix(colorA, colorB, checker);
+    return color;
+}
+
 void main(){
     vec4 lightDirection = normalize(worldPos - lightPos);
     float distance = length(worldPos - lightPos);
@@ -27,7 +36,7 @@ void main(){
     distance = distance < 1.f ? 1.f : distance;
     float intensity = 10.f * dotProduct * attenuation;
 
-    vec3 color = texCoord.rgb;
+    vec3 color = calculateTexColor(texCoord.rgb);
     outColor = vec4(color * (intensity + ambient), 1.f);
     clamp(outColor, 0.f, 1.f);
  
