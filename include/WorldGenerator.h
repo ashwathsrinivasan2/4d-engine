@@ -68,6 +68,12 @@ class WorldGenerator {
         }
     };
 
+    struct mstEdge {
+        int nodeA;
+        int nodeB;
+        int weight;
+    };
+
     struct Room {
         glm::uvec4 minCorner;
         glm::uvec4 dimensions;
@@ -81,6 +87,8 @@ class WorldGenerator {
     std::mt19937 rng{ std::random_device{}() };
 
     glm::vec4 doorDimensions = glm::vec4(4.f, 6.f, 4.f, 4.f);
+
+    float edgeSelectionProbability = 0.15f;
 
     unsigned worldGrid[8][8][8][8];
 
@@ -117,6 +125,11 @@ class WorldGenerator {
     std::vector<float> rowAdd(std::vector<float>, std::vector<float>);
     std::vector<float> rowMultiply(std::vector<float>, float);
     std::vector<float> solveSystem(std::vector<std::vector<float>>, std::vector<float>);
+
+    //mst functions
+    int find(int, std::vector<int>);
+    bool unionElements(int, int, std::vector<int>&, std::vector<int>&);
+    std::vector<std::vector<bool>> createMST(std::vector<std::vector<bool>>);
 
 public:
     WorldGenerator(Scene*);

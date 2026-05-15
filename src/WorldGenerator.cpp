@@ -1,4 +1,5 @@
 #include "WorldGenerator.h"
+#include <algorithm>
 
 WorldGenerator::WorldGenerator(Scene* scene) : scene(scene){
 }
@@ -70,17 +71,101 @@ void WorldGenerator::randGenerate() {
 
     std::vector<std::vector<bool>> adjMatrix = pentachoronizeRooms();
 
-    for (int i = 0; i < rooms.size(); i++) {
-        for (int j = 0; j < rooms.size(); j++) {
-            if (adjMatrix[i][j]) {
-                std::cout << "X";
-            } else {
-                std::cout << "O";
+    //create MST and add back some edges
+    std::vector<std::vector<bool>> mst = createMST(adjMatrix);
+
+    for (int i = 0; i < adjMatrix.size(); i++) {
+        for (int j = i + 1; j < adjMatrix[i].size(); j++) {
+            if (adjMatrix[i][j] && !mst[i][j]) {
+                std::uniform_real_distribution<float> dist(0.f, 1.f);
+                float randVal = dist(rng);
+                if (randVal < edgeSelectionProbability) {
+                    mst[i][j] = true;
+                    mst[j][i] = true;
+                }
             }
-            std::cout << "    ";
+        }
+    }
+
+    for (int i = 0; i < mst.size(); i++) {
+        for (int j = i + 1; j < mst[i].size(); j++) {
+            if (mst[i][j]) {
+                std::cout << i << "-->" << j << std::endl;
+            }
         }
         std::cout << std::endl;
     }
+}
+
+int WorldGenerator::find(int i, std::vector<int> parents) {
+    return parents[i] == i ? i : find(parents[i], parents);
+}
+
+bool WorldGenerator::unionElements(int a, int b, std::vector<int>& parents, std::vector<int>& sizes) {
+    int pA = find(a, parents);
+    int pB = find(b, parents);
+    if (pB == pA) return false;
+
+    if (sizes[pA] > sizes[pB]) {
+        parents[pB] = pA;
+        sizes[pA] += sizes[pB];
+    }
+    else {
+        parents[pA] = pB;
+        sizes[pB] += sizes[pA];
+    }
+
+    return true;
+}
+
+std::vector<std::vector<bool>> WorldGenerator::createMST(std::vector<std::vector<bool>> adjMatrix) {
+    
+
+    std::vector<mstEdge> edges;
+
+    //fill edges vector from adjMatrix
+    for (int i = 0; i < adjMatrix.size(); i++) {
+        for (int j = i + 1; j < adjMatrix[i].size(); j++) {
+            if (adjMatrix[i][j]) {
+                mstEdge newEdge;
+                newEdge.nodeA = i;
+                newEdge.nodeB = j;
+                glm::uvec4 centerA = rooms[i].minCorner + rooms[i].dimensions / 2u;
+                glm::uvec4 centerB = rooms[j].minCorner + rooms[j].dimensions / 2u;
+                glm::vec4 diff = glm::vec4(centerB) - glm::vec4(centerA);
+
+                newEdge.weight = abs(diff.x) + abs(diff.y) + abs(diff.z) + abs(diff.w);
+                edges.push_back(newEdge);
+            }
+        }
+    }
+    std::sort(edges.begin(), edges.end(), [](const mstEdge& a, const mstEdge& b) {return a.weight < b.weight;});
+
+    std::vector<int> parents;
+    std::vector<int> sizes;
+    
+    for (int i = 0; i < rooms.size(); i++) {
+        parents.push_back(i);
+        sizes.push_back(1);
+    }
+
+    std::vector<std::vector<bool>> includedEdges;
+    for (int i = 0; i < rooms.size(); i++) {
+        std::vector<bool> row;
+        for (int j = 0; j < rooms.size(); j++) {
+            row.push_back(false);
+        }
+        includedEdges.push_back(row);
+    }
+
+    for (int i = 0; i < edges.size(); i++) {
+        if (unionElements(edges[i].nodeA, edges[i].nodeB, parents, sizes)) {
+            includedEdges[edges[i].nodeA][edges[i].nodeB] = true;
+            includedEdges[edges[i].nodeB][edges[i].nodeA] = true;
+        }
+    } 
+
+    return includedEdges;
 }
 
 std::vector<float> WorldGenerator::rowAdd(std::vector<float> a, std::vector<float> b) {
