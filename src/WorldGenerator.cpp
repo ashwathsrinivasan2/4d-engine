@@ -1,11 +1,27 @@
 #include "WorldGenerator.h"
 #include <algorithm>
+#include <queue>
+#include <map>
 
 WorldGenerator::WorldGenerator(Scene* scene) : scene(scene){
+
+    worldGrid.resize(gridRes);
+    for (int i = 0; i < gridRes; i++) {
+        worldGrid[i].resize(gridRes);
+        for (int j = 0; j < gridRes; j++) {
+            worldGrid[i][j].resize(gridRes);
+            for (int k = 0; k < gridRes; k++) {
+                worldGrid[i][j][k].resize(gridRes);
+                for (int l = 0; l < gridRes; l++) {
+                    worldGrid[i][j][k][l] = 0;
+                }
+            }
+        }
+    }
 }
 
-glm::uvec4 WorldGenerator::getRandUvec4(glm::uvec4 min, glm::uvec4 max) {
-    glm::uvec4 random;
+glm::ivec4 WorldGenerator::getRandIvec4(glm::ivec4 min, glm::ivec4 max) {
+    glm::ivec4 random;
     for (int i = 0; i < 4; i++) {
         std::uniform_int_distribution<int> dist(min[i], max[i]);
         random[i] = dist(rng);
@@ -17,8 +33,8 @@ bool WorldGenerator::causesOverlap(Room newRoom) {
     for (int i = 0; i < rooms.size(); i++) {
         bool overlaps = true;
         for (int j = 0; j < 4; j++) {
-            if (newRoom.minCorner[j] + newRoom.dimensions[j] <= rooms[i].minCorner[j] ||
-                newRoom.minCorner[j] >= rooms[i].minCorner[j] + rooms[i].dimensions[j]) {
+            if (newRoom.minCorner[j] + newRoom.dimensions[j] < rooms[i].minCorner[j] ||
+                newRoom.minCorner[j] > rooms[i].minCorner[j] + rooms[i].dimensions[j]) {
                 overlaps = false;
                 break;
             }
@@ -31,23 +47,15 @@ bool WorldGenerator::causesOverlap(Room newRoom) {
 void WorldGenerator::randGenerate() {
 
     //initialize worldGrid
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j++) {
-            for (int k = 0; k < 8; k++) {
-                for (int l = 0; l < 8; l++) {
-                    worldGrid[i][j][k][l] = 0;
-                }
-            }
-        }
-    }
+    
 
     //generate rooms
     for (int i = 0; i < numRooms; i++) {
         bool overlap = true;
         Room newRoom;
         while (overlap) {
-            newRoom.dimensions = getRandUvec4(glm::uvec4(1, 1, 1, 1), glm::uvec4(3, 3, 3, 3));
-            newRoom.minCorner = getRandUvec4(glm::uvec4(0), glm::uvec4(7) - newRoom.dimensions);
+            newRoom.dimensions = getRandIvec4(minRoomDim, maxRoomDim);
+            newRoom.minCorner = getRandIvec4(glm::ivec4(0), glm::ivec4(gridRes - 1) - newRoom.dimensions);
             
             overlap = causesOverlap(newRoom);
         }
@@ -56,8 +64,8 @@ void WorldGenerator::randGenerate() {
 
     //add rooms to grid
     for (int i = 0; i < rooms.size(); i++) {
-        glm::uvec4 minCorner = glm::uvec4(rooms[i].minCorner);
-        glm::uvec4 max = glm::uvec4(rooms[i].dimensions) + minCorner;
+        glm::ivec4 minCorner = glm::ivec4(rooms[i].minCorner);
+        glm::ivec4 max = glm::ivec4(rooms[i].dimensions) + minCorner;
         for (int j = minCorner.x; j < max.x; j++) {
             for (int k = minCorner.y; k < max.y; k++) {
                 for (int l = minCorner.z; l < max.z; l++) {
@@ -87,14 +95,163 @@ void WorldGenerator::randGenerate() {
         }
     }
 
+    //aStar pathfinding to create corridors
     for (int i = 0; i < mst.size(); i++) {
         for (int j = i + 1; j < mst[i].size(); j++) {
             if (mst[i][j]) {
-                std::cout << i << "-->" << j << std::endl;
+                glm::ivec4 min = rooms[j].minCorner;
+                glm::ivec4 dim = rooms[j].dimensions;
+                for (int k = min.x; k < min.x + dim.x; k++) {
+                    for (int l = min.y; l < min.y + dim.y; l++) {
+                        for (int m = min.z; m < min.z + dim.z; m++) {
+                            for (int n = min.w; n < min.w + dim.w; n++) {
+                                worldGrid[k][l][m][n] = 3;
+                            }
+                        }
+                    }
+                }
+
+                
+                std::vector<glm::ivec4> path = aStar(i, j);
+
+                for (int k = 0; k < path.size(); k++) {
+                    if (getGridVal(path[k]) == 0) {
+                        worldGrid[path[k].x][path[k].y][path[k].z][path[k].w] = 2;
+                    }
+                }
+                for (int k = min.x; k < min.x + dim.x; k++) {
+                    for (int l = min.y; l < min.y + dim.y; l++) {
+                        for (int m = min.z; m < min.z + dim.z; m++) {
+                            for (int n = min.w; n < min.w + dim.w; n++) {
+                                worldGrid[k][l][m][n] = 1;
+                            }
+                        }
+                    }
+                }
             }
         }
-        std::cout << std::endl;
     }
+
+    std::vector<int> units;
+    for (int i = 0; i < rooms.size(); i++) {
+
+        glm::ivec4 min = rooms[i].minCorner;
+        glm::ivec4 dim = rooms[i].dimensions;
+
+        float h = (float)i / (float)rooms.size();
+        float r = abs(h * 6.f - 3.f) - 1.f;
+        float g = 2.f - abs(h * 6.f - 2.f);
+        float b = 2.f - abs(h * 6.f - 4.f);
+        glm::vec3 color = glm::clamp(glm::vec3(r, g, b), 0.f, 1.f);
+
+        
+
+        for (int j = min.x; j < min.x + dim.x; j++) {
+            for (int k = min.y; k < min.y + dim.y; k++) {
+                for (int l = min.z; l < min.z + dim.z; l++) {
+                    for (int m = min.w; m < min.w + dim.w; m++) {
+                        if (getGridVal(glm::ivec4(j, k, l, m)) != 1) throw std::runtime_error("room is not a room");
+                        units.push_back(scene->Tesseract(glm::vec3(color)));
+                        glm::vec4 pos((float)j, (float)k, (float)l, (float)m);
+                        pos -= glm::vec4(float(gridRes) / 2.f);
+                        pos += glm::vec4(0.5f);
+                        scene->translate(units[units.size() - 1], pos);
+                    }
+                }
+            }
+        }
+    }
+
+
+    
+    for (int i = 0; i < gridRes; i++) {
+        for (int j = 0; j < gridRes; j++) {
+            for (int k = 0; k < gridRes; k++) {
+                for (int l = 0; l < gridRes; l++) {
+                    int currCell = worldGrid[i][j][k][l];
+                    int currUnit;
+                    if (currCell == 2) {
+                        units.push_back(scene->Tesseract(glm::vec3(1.f)));
+                    }
+                    else {
+                        continue;
+                    }
+
+                    glm::vec4 pos((float)i, (float)j, (float)k, (float)l);
+                    pos -= glm::vec4(float(gridRes) / 2.f);
+                    pos += glm::vec4(0.5f);
+                    scene->translate(units[units.size() - 1], pos);
+                }
+            }
+        }
+    }
+
+    int map = scene->groupEntities(units);
+    scene->scale(map, glm::vec4(gridScale));
+}
+
+int getManhattanDistance(glm::ivec4 a, glm::ivec4 b) {
+    glm::vec4 tA(a);
+    glm::vec4 tB(b);
+    glm::vec4 diff = tA - tB;
+    for (int i = 0; i < 4; i++) { diff[i] = abs(diff[i]); }
+    glm::ivec4 uDiff(diff);
+    return uDiff.x + uDiff.y + uDiff.z + uDiff.w;
+}
+
+std::vector<glm::ivec4> WorldGenerator::aStar(int roomA, int roomB) {
+    glm::ivec4 start = rooms[roomA].minCorner + rooms[roomA].dimensions / 2;
+    glm::ivec4 goal = rooms[roomB].minCorner + rooms[roomB].dimensions / 2;
+
+    std::vector<std::vector<int>> weights = {
+        {10, 9999, 1, 10},
+        {10, 10, 1, 9999},
+        {10, 9999, 1, 10},
+        {9999, 9999, 9999, 10}
+    };
+
+
+    glm::ivec4 offsets[] = {
+    {1,0,0,0},{-1,0,0,0},
+    {0,1,0,0},{0,-1,0,0},
+    {0,0,1,0},{0,0,-1,0},
+    {0,0,0,1},{0,0,0,-1}
+    };
+
+    
+    Fringe fringe;
+    fringe.push(0, getManhattanDistance(start, goal), start, start);
+
+    int currIter = 0;
+
+    int maxIter = gridRes * gridRes * gridRes * gridRes;
+
+    while (!fringe.empty()) {
+        currIter++;
+        if (currIter > maxIter) {
+            throw std::runtime_error("infinite loop");
+        }
+        int cost;
+        glm::ivec4 prev;
+        glm::ivec4 pos;
+        bool valid = fringe.pop(cost, pos, prev);
+
+        if (valid) {
+            if (pos == goal) break;
+            for (int i = 0; i < 8; i++) {
+                glm::ivec4 newPos = glm::ivec4(glm::ivec4(pos) + offsets[i]);
+                if (newPos.x >= gridRes || newPos.y >= gridRes || newPos.z >= gridRes || newPos.w >= gridRes) continue;
+                if (newPos.x < 0 || newPos.y < 0 || newPos.z < 0 || newPos.w < 0) continue;
+                
+                int weight = weights[getGridVal(pos)][getGridVal(newPos)];
+                int newG = cost + weight;
+                fringe.push(newG, getManhattanDistance(newPos, goal), newPos, pos);
+            }
+        }
+    }
+
+    std::vector<glm::ivec4> path = fringe.getPath(start, goal);
+    return path;
 }
 
 int WorldGenerator::find(int i, std::vector<int> parents) {
@@ -130,8 +287,8 @@ std::vector<std::vector<bool>> WorldGenerator::createMST(std::vector<std::vector
                 mstEdge newEdge;
                 newEdge.nodeA = i;
                 newEdge.nodeB = j;
-                glm::uvec4 centerA = rooms[i].minCorner + rooms[i].dimensions / 2u;
-                glm::uvec4 centerB = rooms[j].minCorner + rooms[j].dimensions / 2u;
+                glm::ivec4 centerA = rooms[i].minCorner + rooms[i].dimensions / 2;
+                glm::ivec4 centerB = rooms[j].minCorner + rooms[j].dimensions / 2;
                 glm::vec4 diff = glm::vec4(centerB) - glm::vec4(centerA);
 
                 newEdge.weight = abs(diff.x) + abs(diff.y) + abs(diff.z) + abs(diff.w);
