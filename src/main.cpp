@@ -41,8 +41,6 @@ int main(){
     WorldGenerator generator(&scene);
     generator.randGenerate();
 
-    scene.Cube();
-
     //create random rooms
 
 
@@ -94,7 +92,7 @@ int main(){
     //scene.rotate(fullTest, 5, glm::asin(1.f / sqrt(3.f)));
     
     scene.getCamera().setMode("fpv");
-    scene.getCamera().setSpawn(glm::vec4(0.f));
+    //scene.getCamera().setSpawn(generator.getSpawnPos());
     Application app(&scene);
     app.run();
 }

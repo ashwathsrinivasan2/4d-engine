@@ -49,13 +49,25 @@ void Application::mainLoop(){
 }
 
 void Application::handleInput(float time){
+    int lastKeyUp = keyUp;
+    int lastKeyDown = keyDown;
+    int lastKeyRight = keyRight;
+    int lastKeyLeft = keyLeft;
+
     keyW = glfwGetKey(window, GLFW_KEY_W);
     keyA = glfwGetKey(window, GLFW_KEY_A);
     keyS = glfwGetKey(window, GLFW_KEY_S);
     keyD = glfwGetKey(window, GLFW_KEY_D);
     keyQ = glfwGetKey(window, GLFW_KEY_Q);
     keyE = glfwGetKey(window, GLFW_KEY_E);
+
+    keyUp = glfwGetKey(window, GLFW_KEY_UP);
+    keyDown = glfwGetKey(window, GLFW_KEY_DOWN);
+    keyRight = glfwGetKey(window, GLFW_KEY_RIGHT);
+    keyLeft = glfwGetKey(window, GLFW_KEY_LEFT);
     mousePressed = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+
+
     
 
     if(keyW == GLFW_PRESS){
@@ -75,6 +87,19 @@ void Application::handleInput(float time){
     }
     if (keyE == GLFW_PRESS) {
         scene->getCamera().moveAna(time);
+    }
+
+    if (lastKeyUp != GLFW_PRESS && keyUp == GLFW_PRESS) {
+        scene->getCamera().rotate(5, glm::pi<float>() / 2.f);
+    }
+    if (lastKeyDown != GLFW_PRESS && keyDown == GLFW_PRESS) {
+        scene->getCamera().rotate(5, -glm::pi<float>() / 2.f);
+    }
+    if (lastKeyRight != GLFW_PRESS && keyRight == GLFW_PRESS) {
+        scene->getCamera().rotate(2, glm::pi<float>() / 2.f);
+    }
+    if (lastKeyLeft != GLFW_PRESS && keyLeft == GLFW_PRESS) {
+        scene->getCamera().rotate(2, -glm::pi<float>() / 2.f);
     }
 
     static bool firstFrame = true;

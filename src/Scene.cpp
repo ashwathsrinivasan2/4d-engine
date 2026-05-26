@@ -6,12 +6,6 @@
 
 Scene::Scene(){
 
-    std::cout << "Vertex size: " << sizeof(Vertex) << std::endl;
-    std::cout << "pos offset: " << offsetof(Vertex, pos) << std::endl;
-    std::cout << "color offset: " << offsetof(Vertex, color) << std::endl;
-    std::cout << "normal offset: " << offsetof(Vertex, normal) << std::endl;
-    std::cout << "texCoord offset: " << offsetof(Vertex, texCoord) << std::endl;
-    std::cout << "instanceID offset: " << offsetof(Vertex, instanceID) << std::endl;
 }
 
 
@@ -111,11 +105,19 @@ void Scene::rotate(int entityIndex, int planeID, float radians) {
 int Scene::groupEntities(std::vector<int> entities) {
     int parentID = instances.size();
 
+    //default, group entire scene
     if (entities.empty()) {
         for (int i = 0; i < instances.size(); i++) {
             entities.push_back(i);
         }
     }
+
+    /*
+    for (int i = 0; i < entities.size(); i++) {
+        std::cout << entities[i] << " ";
+    }
+    std::cout << std::endl;
+    */
 
     for (int i = 0; i < entities.size(); i++) {
         int childID = entities[i];
@@ -406,7 +408,6 @@ int Scene::Tesseract(glm::vec3 color, bool inverted){
 }
 
 int Scene::Cube(glm::vec3 color) {
-
     std::vector<Vertex> vertexData = {
         { {-0.5, -0.5, -0.5, 0.5}, color, {0, 0, 0, 1}, {0.f, 0.f, 0.f} },
         { {-0.5, 0.5, 0.5, 0.5}, color, {0, 0, 0, 1}, {0.f, 0.f, 0.f} },

@@ -51,8 +51,8 @@ shared uint currIndex;
 
 
 bool intersectsPlane(vec4 sides){
-    bool hasPos = sides.x >= 0.0 || sides.y >= 0.0 || sides.z >= 0.0 || sides.w >= 0.0;
-    bool hasNeg = sides.x <= 0.0 || sides.y <= 0.0 || sides.z <= 0.0 || sides.w <= 0.0;
+    bool hasPos = sides.x > 0.0 || sides.y > 0.0 || sides.z > 0.0 || sides.w > 0.0;
+    bool hasNeg = sides.x < 0.0 || sides.y < 0.0 || sides.z < 0.0 || sides.w < 0.0;
     return hasPos && hasNeg;
 }
 

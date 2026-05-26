@@ -62,12 +62,12 @@ void Camera::moveForward(float time){
             eye += (time * viewVector);
         }
     } else {
-        eye += (time * glm::vec4(viewVector.x, 0.f, viewVector.z, viewVector.w));
+        eye += (time * glm::vec4(viewVector.x, viewVector.y, viewVector.z, viewVector.w));
     }
 }
 void Camera::moveBackward(float time){
     time *= speed;
-    eye -= (time * glm::vec4(viewVector.x, 0.f, viewVector.z, viewVector.w));
+    eye -= (time * glm::vec4(viewVector.x, viewVector.y, viewVector.z, viewVector.w));
 }
 void Camera::moveLeft(float time){
     time *= speed;
@@ -123,49 +123,59 @@ void Camera::moveKata(float time) {
 }
 
 void Camera::orthonormalize() {
-    viewVector = glm::normalize(viewVector);
-    rightVector = glm::normalize(rightVector - glm::dot(rightVector, viewVector) * viewVector);
-    upVector = glm::normalize(upVector - glm::dot(upVector, viewVector) * viewVector
+
+    anaVector = glm::normalize(anaVector);
+
+    rightVector = glm::normalize(rightVector - glm::dot(rightVector, anaVector) * anaVector);
+    upVector = glm::normalize(upVector
+        - glm::dot(upVector, anaVector) * anaVector
         - glm::dot(upVector, rightVector) * rightVector);
-    anaVector = glm::normalize(anaVector - glm::dot(anaVector, viewVector) * viewVector
-        - glm::dot(anaVector, rightVector) * rightVector
-        - glm::dot(anaVector, upVector) * upVector);
+    viewVector = glm::normalize(viewVector
+        - glm::dot(viewVector, rightVector) * rightVector
+        - glm::dot(viewVector, upVector) * upVector
+        - glm::dot(viewVector, anaVector) * anaVector);
 }
 
 void Camera::rotate(int planeID, float amount) {
     glm::vec4 vA;
     glm::vec4 vB;
+    if (planeID == 0 || planeID == 2 || planeID == 4) return;
 
+    float pitch = glm::degrees(asin(glm::clamp(viewVector.y, -1.f, 1.f)));
     switch (planeID) {
-    case 0:
+    case 0: //xy 
         vA = rightVector;
         vB = upVector;
         break;
-    case 1:
+    case 1: //xz
         vA = rightVector;
         vB = viewVector;
         vA.y = 0.f;
         vB.y = 0.f;
         break;
-    case 2:
+    case 2: //xw
         vA = rightVector;
         vB = anaVector;
         vA.y = 0.f;
         vB.y = 0.f;
         break;
-    case 3:
+    case 3: //yz
+        if (pitch > 85.f && amount > 0.f) return;
+        if (pitch < -85.f && amount < 0.f) return;
         vA = upVector;
         vB = viewVector;
         break;
-    case 4:
+    case 4: //yw
         vA = upVector;
         vB = anaVector;
         break;
-    case 5:
+    case 5: //zw
         vA = viewVector;
         vB = anaVector;
         vA.y = 0.f;
         vB.y = 0.f;
+        vA.x = 0.f;
+        vB.x = 0.f;
         break;
     default:
         return;
@@ -175,12 +185,15 @@ void Camera::rotate(int planeID, float amount) {
     vB = glm::normalize(vB);
 
     Rotor newRotation(vA, vB, amount);
+
     currRotation.rotate(newRotation);
     rightVector = currRotation.apply(glm::vec4(1.f, 0.f, 0.f, 0.f));
     viewVector = currRotation.apply(glm::vec4(0.f, 0.f, -1.f, 0.f));
     upVector = currRotation.apply(glm::vec4(0.f, 1.f, 0.f, 0.f));
+    if(planeID == 2 || planeID == 4 || planeID == 5)
     anaVector = currRotation.apply(glm::vec4(0.f, 0.f, 0.f, 1.f));
     orthonormalize();
+
 }
 
 

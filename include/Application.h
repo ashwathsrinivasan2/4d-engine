@@ -30,6 +30,12 @@ class Application{
     int keyD;
     int keyQ;
     int keyE;
+
+    int keyUp;
+    int keyDown;
+    int keyRight;
+    int keyLeft;
+
     bool mousePressed;
 
     public:

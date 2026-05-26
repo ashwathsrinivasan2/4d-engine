@@ -105,9 +105,8 @@ glm::vec4 Rotor::apply(glm::vec4 v) {
 	float xzw = -mx * zw - my * xyzw + mz * xw - mw * xz + mxyz * yw - mxyw * yz + mxzw * s + myzw * xy;
 	float yzw = mx * xyzw - my * zw + mz * yw - mw * yz - mxyz * xw + mxyw * xz - mxzw * xy + myzw * s;
 
-	glm::vec4 res(x, y, z, w);
-	glm::normalize(res);
-	return res;
+	return glm::vec4(x, y, z, w);
+	return glm::normalize(glm::vec4(x, y, z, w));
 }
 
 void Rotor::rotate(Rotor& a) {

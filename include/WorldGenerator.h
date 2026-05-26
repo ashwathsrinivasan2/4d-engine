@@ -1,3 +1,12 @@
+//DIRECTIONS: 0 - x-, 1 - x+, 2 - y-, 3 - y+, 4 - z-, 5 - z+, 6 - w-, 7 - w+
+
+//GRID (cell space):
+//ranges from (0, 0, 0, 0) to (gridRes, gridRes, gridRes, gridRes)
+//centered at (gridRes / 2, gridRes / 2, gridRes / 2, gridRes / 2)
+//integer coordinates only
+
+//
+
 
 #ifndef WORLD_GENERATOR
 #define WORLD_GENERATOR
@@ -145,6 +154,8 @@ class WorldGenerator {
                 goal = previous[goal];
             }
 
+            path.push_back(goal);
+
             std::reverse(path.begin(), path.end());
             return path;
         }
@@ -155,30 +166,48 @@ class WorldGenerator {
         glm::ivec4 dimensions;
     };
 
+    struct Corridor {
+        glm::ivec4 start;
+        glm::ivec4 end;
+        int direction;
+        int numCornerEndpoints;
+
+        Corridor(glm::ivec4 s, glm::ivec4 g, int dir, int corners) :
+            start(s), end(g), direction(dir), numCornerEndpoints(corners){ }
+    };
+
+    struct CorridorCorner {
+        std::vector<int> walledDirections;
+        glm::ivec4 position;
+
+        CorridorCorner(std::vector<int> dir, glm::ivec4 pos) : walledDirections(dir), position(pos) {}
+    };
+
     Scene* scene;
-    std::string buildInstructions;
 
     std::vector<Room> rooms;
+    std::vector<Corridor> corridors;
+    std::vector<CorridorCorner> corridorCorners;
+    std::unordered_map<glm::ivec4, std::vector<int>> doorways;
 
     std::mt19937 rng{ std::random_device{}() };
 
-    glm::vec4 doorDimensions = glm::vec4(4.f, 6.f, 4.f, 4.f);
-
-    glm::ivec4 minRoomDim = glm::ivec4(3, 3, 3, 2);
-    glm::ivec4 maxRoomDim = glm::ivec4(10, 10, 10, 10);
-
     unsigned currVID = 0;
 
-    int numRooms = 50;
+    std::vector<std::vector<std::vector<std::vector<unsigned>>>> worldGrid;
 
+    float gridScale = 5.f;
+    unsigned gridRes = 8;
+    int numRooms = 10;
     float edgeSelectionProbability = 0.15f;
 
-    std::vector<std::vector<std::vector<std::vector<unsigned>>>> worldGrid;
-    float gridScale = 0.25f;
-    unsigned gridRes = 32;
+    glm::vec4 doorDimensions = glm::vec4(1.f);
+    glm::ivec4 minRoomDim = glm::ivec4(1, 1, 1, 1);
+    glm::ivec4 maxRoomDim = glm::ivec4(3, 3, 3, 3);
 
-    int getOrientedCube(int);
-    void parseBuildInstructions();
+
+
+    int getOrientedCube(int direction, glm::vec3 color = glm::vec3(1.f));
 
     bool causesOverlap(Room);
 
@@ -193,13 +222,11 @@ class WorldGenerator {
 
     glm::ivec4 getRandIvec4(glm::ivec4, glm::ivec4);
 
-    unsigned getGridVal(glm::ivec4 index) {
-        return worldGrid[index.x][index.y][index.z][index.w];
-    }
+    unsigned getGridVal(glm::ivec4);
 
     //builder functions
-    int wallWithDoor(glm::vec4, glm::vec2);
-    int corridorCorner(int, int);
+    int wallWithDoor(glm::vec4, glm::vec3, int);
+    int corridorCorner(std::vector<int>);
     int corridor(float, int);
     int createRoom(glm::vec4);
 
@@ -221,10 +248,70 @@ class WorldGenerator {
 
     //pathfinding functions
     std::vector<glm::ivec4> aStar(int roomA, int roomB);
+    bool checkAdjacentCellsMatch(glm::ivec4, glm::ivec4);
+    bool checkIfStraight(glm::ivec4);
+    std::vector<int> getWalledDirections(glm::ivec4);
+
+    
+
+    int createMeshes();
+
+    template<typename T>
+    inline bool contains(std::vector<T> list, T value) {
+        for (int i = 0; i < list.size(); i++) {
+            if (list[i] == value) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    inline glm::vec4 getTranslate(glm::vec4 scalar, glm::ivec4 startCorner, glm::ivec4 currMin, bool posSide, int side) {
+        scalar[side] = 0.f;
+        glm::vec4 translate = scalar / 2.f      //move section's minCorner to world origin
+            - glm::vec4((float)gridRes / 2.f)   //move section's minCorner to grid origin (grid's minCorner)
+            + glm::vec4(startCorner)     //move section's minCorner to room's minCorner
+            + glm::vec4(currMin);                  //move section's minCorner to currMin's minCorner
+        translate[side] += (posSide ? 1.f : 0.f);
+        return translate;
+    }
+
+    void testGrid() {
+        rooms = {};
+        corridors = {};
+        corridorCorners = {};
+
+        glm::ivec4 minCorner(2, 2, 2, 2);
+        glm::ivec4 dim(4, 4, 4, 4);
+
+        Room newRoom(minCorner, dim);
+        rooms.push_back(newRoom);
+        for (int i = 0; i < gridRes; i++) {
+            for (int j = 0; j < gridRes; j++) {
+                for (int k = 0; k < gridRes; k++) {
+                    for (int l = 0; l < gridRes; l++) {
+                        worldGrid[i][j][k][l] = 0;
+                    }
+                }
+            }
+        }
+
+        for (int i = minCorner.x; i < minCorner.x + dim.x; i++) {
+            for (int j = minCorner.y; j < minCorner.y + dim.y; j++) {
+                for (int k = minCorner.z; k < minCorner.z + dim.z; k++) {
+                    for (int l = minCorner.w; l < minCorner.w + dim.w; l++) {
+                        worldGrid[i][j][k][l] = 1;
+                    }
+                }
+            }
+        }
+
+    }
 
 public:
     WorldGenerator(Scene*);
-    void randGenerate();
+    int randGenerate();
+    glm::vec4 getSpawnPos();
 };
 
 #endif

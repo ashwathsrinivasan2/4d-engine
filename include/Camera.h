@@ -4,7 +4,7 @@
 #include <glm/glm.hpp>
 #include "string"
 #include "Rotor.h"
-
+#include <iostream>
 //creates view and projection matrices
 class Camera{
 
@@ -32,9 +32,19 @@ class Camera{
     Rotor currRotation;
 
 
+
     float currYaw = 0.0f;
 
     void orthonormalize();
+
+    inline void printVec(std::string name, glm::vec4 vec) {
+        std::cout << name << ": {";
+        for (int i = 0; i < 4; i++) {
+            std::cout << vec[i];
+            if (i != 4) std::cout << " ";
+        }
+        std::cout << "}" << std::endl;
+    }
     
     public:
     Camera();
@@ -53,7 +63,7 @@ class Camera{
     void moveRight(float);
     void moveAna(float);
     void moveKata(float);
-    
+
     void rotate(int, float);
 
     void zoom(float);
