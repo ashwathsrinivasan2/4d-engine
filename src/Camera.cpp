@@ -123,8 +123,21 @@ void Camera::moveKata(float time) {
 }
 
 void Camera::orthonormalize() {
-
+    rightVector.y = 0.f;
+    anaVector.y = 0.f;
+    rightVector = glm::normalize(rightVector);
+   
     anaVector = glm::normalize(anaVector);
+    int currMax = 0;
+    int sign = 1;
+    for (int i = 1; i < 4; i++) {
+        if (abs(anaVector[i]) > abs(anaVector[currMax])) {
+            currMax = i;
+            sign = anaVector[i] < 0.f ? -1 : 1;
+        }
+    }
+    anaVector = glm::vec4(0.f);
+    anaVector[currMax] = sign;
 
     rightVector = glm::normalize(rightVector - glm::dot(rightVector, anaVector) * anaVector);
     upVector = glm::normalize(upVector
@@ -137,6 +150,8 @@ void Camera::orthonormalize() {
 }
 
 void Camera::rotate(int planeID, float amount) {
+
+
     glm::vec4 vA;
     glm::vec4 vB;
     if (planeID == 0 || planeID == 2 || planeID == 4) return;
@@ -162,7 +177,7 @@ void Camera::rotate(int planeID, float amount) {
     case 3: //yz
         if (pitch > 85.f && amount > 0.f) return;
         if (pitch < -85.f && amount < 0.f) return;
-        vA = upVector;
+        vA = glm::vec4(0.f, 1.f, 0.f, 0.f);
         vB = viewVector;
         break;
     case 4: //yw
@@ -192,6 +207,8 @@ void Camera::rotate(int planeID, float amount) {
     upVector = currRotation.apply(glm::vec4(0.f, 1.f, 0.f, 0.f));
     if(planeID == 2 || planeID == 4 || planeID == 5)
     anaVector = currRotation.apply(glm::vec4(0.f, 0.f, 0.f, 1.f));
+
+    
     orthonormalize();
 
 }

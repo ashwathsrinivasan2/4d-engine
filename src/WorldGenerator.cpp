@@ -55,14 +55,8 @@ unsigned WorldGenerator::getGridVal(glm::ivec4 index) {
 }
 
 glm::vec4 WorldGenerator::getSpawnPos() {
-    int currMin = 0;
-    for (int i = 1; i < rooms.size(); i++) {
-        if (glm::length(glm::vec4(rooms[i].minCorner)) < glm::length(glm::vec4(rooms[currMin].minCorner))) {
-            currMin = i;
-        }
-    }
 
-    glm::vec4 spawnPos = glm::vec4(rooms[currMin].minCorner) + glm::vec4(rooms[currMin].dimensions) / 2.f;
+    glm::vec4 spawnPos = glm::vec4(rooms[startRoom].minCorner);
     spawnPos -= glm::vec4((float)gridRes / 2.f - 0.5f);
     spawnPos *= gridScale;
     return spawnPos;
@@ -87,10 +81,19 @@ int WorldGenerator::randGenerate() {
         rooms.push_back(newRoom);
     }
 
+    int currMin = 0;
+    int currMax = 0;
+
     //add rooms to grid
     for (int i = 0; i < rooms.size(); i++) {
         glm::ivec4 minCorner = glm::ivec4(rooms[i].minCorner);
         glm::ivec4 max = glm::ivec4(rooms[i].dimensions) + minCorner;
+        if (distSquared(glm::vec4(minCorner)) < distSquared(glm::vec4(rooms[currMin].minCorner))) {
+            currMin = i;
+        }
+        if (distSquared(glm::vec4(minCorner)) > distSquared(glm::vec4(rooms[currMax].minCorner))) {
+            currMax = i;
+        }
         for (int j = minCorner.x; j < max.x; j++) {
             for (int k = minCorner.y; k < max.y; k++) {
                 for (int l = minCorner.z; l < max.z; l++) {
@@ -101,6 +104,12 @@ int WorldGenerator::randGenerate() {
             }
         }
     }
+
+    startRoom = currMin;
+    endRoom = currMax;
+
+    printVec("endRoom minCorner", rooms[endRoom].minCorner);
+    printVec("endRoom dimensions", rooms[endRoom].dimensions);
 
     std::vector<std::vector<bool>> adjMatrix = pentachoronizeRooms();
 
@@ -196,7 +205,10 @@ int WorldGenerator::randGenerate() {
                     }
                 }
 
+                if(!contains(doorways[path[start]], startDir))
                 doorways[path[start]].push_back(startDir);
+
+                if (!contains(doorways[path[end]], endDir))
                 doorways[path[end + 1]].push_back(endDir);
 
                
@@ -421,21 +433,8 @@ bool WorldGenerator::checkAdjacentCellsMatch(glm::ivec4 a, glm::ivec4 b) {
 int WorldGenerator::createMeshes() {
 
     //testGrid();
-    
+    /*
     std::vector<int> units;
-    for (int i = 0; i < rooms.size(); i++) {
-
-        glm::ivec4 min = rooms[i].minCorner;
-        glm::ivec4 dim = rooms[i].dimensions;
-
-        float h = (float)i / (float)rooms.size();
-        float r = abs(h * 6.f - 3.f) - 1.f;
-        float g = 2.f - abs(h * 6.f - 2.f);
-        float b = 2.f - abs(h * 6.f - 4.f);
-        glm::vec3 color = glm::clamp(glm::vec3(r, g, b), 0.f, 1.f);
-    }
-
-
 
     for (int i = 0; i < gridRes; i++) {
         for (int j = 0; j < gridRes; j++) {
@@ -467,9 +466,11 @@ int WorldGenerator::createMeshes() {
         }
     }
 
+
     int map = scene->groupEntities(units);
     scene->scale(map, glm::vec4(gridScale));
     scene->translate(map, glm::vec4((float)gridRes * gridScale, 0.f, 0.f, 0.f));
+    */
     
 
     std::vector<int> meshData;
@@ -520,15 +521,23 @@ int WorldGenerator::createMeshes() {
         glm::ivec4 minCorner = rooms[i].minCorner;
         glm::ivec4 dim = rooms[i].dimensions;
         std::vector<int> sections;
-        glm::vec3 colors[8] = { {1.f, 0.f, 0.f}, {0.f, 1.f, 1.f}, {0.f, 1.f, 0.f}, {1.f, 0.f, 1.f}, {0.f, 0.f, 1.f}, {1.f, 1.f, 0.f}, {1.f, 1.f, 1.f}, {0.2f, 0.2f, 0.2f} };
-        for (int j = 0; j < 8; j++) {
-            colors[j] = { 1.f, 1.f, 0.f };
-        }
+
+        glm::vec3 startColor(1.f, 1.f, 0.f);
+        glm::vec3 endColor(1.f, 0.f, 1.f);
+        glm::vec3 defaultColor(1.f, 0.5f, 0.f);
+        
+        glm::vec3 color = defaultColor;
+        if (i == startRoom) color = startColor;
+        if (i == endRoom) color = endColor;
+        
+    
+        
         int numDoors = 0;
+        int numPieces = 0;
 
         //loop through walls
         for (int j = 0; j < 8; j++) {
-            glm::vec3 color = colors[j];
+            
             //-x, +x, -y, +y, -z, +z, -w, +w
             int side = j / 2;
             bool posSide = j % 2 == 1;
@@ -570,6 +579,11 @@ int WorldGenerator::createMeshes() {
 
                         //if current cell is a door
                         if (currMin != offset && getGridVal(currCell) == 4 && contains(doorways[currCell], j)) {
+                            std::cout << "Cell found: i = " << i << ", j = " << j << ", currCell = " << currCell.x << ", " << currCell.y << ", " << currCell.z << ", " << currCell.w << ", doorways = ";
+                            for (int n = 0; n < doorways[currCell].size(); n++) {
+                                std::cout << doorways[currCell][n] << ", ";
+                            }
+                            std::cout << std::endl << std::endl;
                             bool doorReached = false;
                             numDoors++;
                             //fill remaining row
@@ -701,19 +715,20 @@ int WorldGenerator::createMeshes() {
                                     scene->translate(wallSection, translate);
                                     sections.push_back(wallSection);
 
-                                    currMin[c] = offset[c] + 1;
-                                    if (currMin[c] >= dim[c]) {
-                                        currMin[c] = 0;
-                                        currMin[b]++;
-                                        if (currMin[b] >= dim[b]) {
-                                            currMin[b] = 0;
-                                            currMin[a]++;
-                                        }
-                                    }
+                                    
+                                }
+                            }
+                            currMin[c] = offset[c] + 1;
+                            if (currMin[c] >= dim[c]) {
+                                currMin[c] = 0;
+                                currMin[b]++;
+                                if (currMin[b] >= dim[b]) {
+                                    currMin[b] = 0;
+                                    currMin[a]++;
                                 }
                             }
                         } else {
-                            if (currMin == offset && getGridVal(currCell) == 4) {
+                            if (getGridVal(currCell) == 4 && contains(doorways[currCell], j)) {
                                 currMin[c]++;
                                 if (currMin[c] >= dim[c])
                                 {
@@ -794,13 +809,13 @@ int WorldGenerator::createMeshes() {
             }
         }
 
+        std::cout << sections.size() << std::endl;
+
         int room = scene->groupEntities(sections);
         glm::vec4 scalar = glm::vec4(gridScale);
         scene->scale(room, scalar);
         meshData.push_back(room);
     }
-
-    
     
     
     //add straight corridors
@@ -846,7 +861,6 @@ int WorldGenerator::createMeshes() {
         scene->translate(corner, translation);
     }
 
-    std::cout << "Line 783" << std::endl;
     int corridorSection = scene->groupEntities(corridorMeshData);
     scene->scale(corridorSection, glm::vec4(gridScale));
 
@@ -1265,84 +1279,6 @@ int WorldGenerator::getOrientedCube(int direction, glm::vec3 color) {
     return cube;
 }
 
-int WorldGenerator::wallWithDoor(glm::vec4 dim, glm::vec3 doorPosition, int direction) {
-
-    int minIndex = 0;
-    for (int i = 1; i < 4; i++) {
-        if (dim[i] < dim[minIndex]) {
-            minIndex = i;
-        }
-    }
-
-    int aIndex = (minIndex + 1) % 4;
-    int bIndex = (minIndex + 2) % 4;
-    int cIndex = (minIndex + 3) % 4;
-
-    glm::vec4 doorDim = doorDimensions * gridScale;
-    doorDim[3] = dim[minIndex];
-    glm::vec4 doorPos(0.f);
-    doorPos[aIndex] = doorPosition.x;
-    doorPos[bIndex] = doorPosition.y;
-    doorPos[1] = doorDim[1] / 2.f - dim[1] / 2.f;
-
-    int aNeg = getOrientedCube(direction);
-    int aPos = getOrientedCube(direction);
-    int yPos = getOrientedCube(direction);
-    int bNeg = getOrientedCube(direction);
-    int bPos = getOrientedCube(direction);
-
-
-
-    glm::vec4 aNegScalar = dim;
-    aNegScalar[aIndex] = doorPos[aIndex] + dim[aIndex] / 2.f - doorDim[aIndex] / 2.f;
-
-    glm::vec4 aPosScalar = dim;
-    aPosScalar[aIndex] = dim[aIndex] - (doorPos[aIndex] + dim[aIndex] / 2.f + doorDim[aIndex] / 2.f);
-
-    glm::vec4 yScalar = doorDim;
-    yScalar[1] = dim.y - doorDim.y;
-
-    glm::vec4 bNegScalar = doorDim;
-    bNegScalar[bIndex] = doorPos[bIndex] + dim[bIndex] / 2.f - doorDim[bIndex] / 2.f;
-    bNegScalar[1] = dim.y;
-
-    glm::vec4 bPosScalar = doorDim;
-    bPosScalar[bIndex] = dim[bIndex] - (doorPos[bIndex] + dim[bIndex] / 2.f + doorDim[bIndex] / 2.f);
-    bPosScalar[1] = dim.y;
-
-
-
-    glm::vec4 aNegTranslate(0.f);
-    aNegTranslate[aIndex] = doorPos[aIndex] - (doorDim[aIndex] / 2.f + aNegScalar[aIndex] / 2.f);
-
-    glm::vec4 aPosTranslate(0.f);
-    aPosTranslate[aIndex] = doorPos[aIndex] + doorDim[aIndex] / 2.f + aPosScalar[aIndex] / 2.f;
-
-    glm::vec4 yTranslate = doorPos;
-    yTranslate[1] += doorDim[1] / 2.f + yScalar[1] / 2.f;
-
-    glm::vec4 bNegTranslate = doorPos;
-    bNegTranslate[bIndex] -= doorDim[bIndex] / 2.f + bNegScalar[bIndex] / 2.f;
-    bNegTranslate[1] = 0.f;
-
-    glm::vec4 bPosTranslate = doorPos;
-    bPosTranslate[bIndex] += doorDim[bIndex] / 2.f + bPosScalar[bIndex] / 2.f;
-    bPosTranslate[1] = 0.f;
-
-    std::vector<int> sections = { aNeg, aPos, bNeg, bPos, yPos };
-    std::vector<std::string> names = { "aNeg", "aPos", "bNeg", "bPos", "y" };
-    std::vector<glm::vec4> translates = { aNegTranslate, aPosTranslate, bNegTranslate, bPosTranslate, yTranslate };
-    std::vector<glm::vec4> scales = { aNegScalar, aPosScalar, bNegScalar, bPosScalar, yScalar };
-
-    for (int i = 0; i < 5; i++) {
-        scene->translate(sections[i], translates[i]);
-        scene->scale(sections[i], scales[i]);
-    }
-
-
-    return scene->groupEntities(sections);
-}
-
 int WorldGenerator::corridorCorner(std::vector<int> walledDirections){
     if (walledDirections.size() == 0) return -1;
     std::vector<int> walls;
@@ -1410,20 +1346,64 @@ int WorldGenerator::corridor(float length, int directionDim) {
     return hall;
 }
 
-int WorldGenerator::createRoom(glm::vec4 dim) {
-    std::vector<int> walls;
-    for (int i = 0; i < 8; i++) {
-        walls.push_back(getOrientedCube(i));
+glm::ivec4 WorldGenerator::worldToGrid(glm::vec4 pos) {
+    pos /= gridScale;
+    pos += glm::vec4(gridRes / 2.f);
+    return glm::ivec4(floor(pos.x), floor(pos.y), floor(pos.z), floor(pos.w));
+}
+
+bool WorldGenerator::checkInGoalRoom(glm::vec4 pos) {
+    glm::ivec4 gridPos = worldToGrid(pos);
+    glm::ivec4 min = rooms[endRoom].minCorner;
+    glm::ivec4 max = min + rooms[endRoom].dimensions - glm::ivec4(1);
+
+    for (int i = 0; i < 4; i++) {
+        if (gridPos[i] < min[i] || gridPos[i] > max[i]) {
+            return false;
+        }
     }
+    return true;
+}
 
-    for (int i = 0; i < 8; i++) {
-        glm::vec4 translate(0.f);
-        translate[i / 2] = -((float)(i % 2) - 0.5f);
-        scene->translate(walls[i], translate);
+bool WorldGenerator::isValidMove(glm::vec4 last, glm::vec4 curr) {
+    glm::ivec4 lastGridPos = worldToGrid(last);
+    glm::ivec4 currGridPos = worldToGrid(curr);
+    int lastVal = getGridVal(lastGridPos);
+    int currVal = getGridVal(currGridPos);
+    if (currVal == 0) return false;
+    if (lastVal == 0) return true;
+    if (lastVal == 1) {
+        if (currVal == 1 || currVal == 4) return true;
+        if (currVal == 2) return false;
     }
-
-
-    int room = scene->groupEntities(walls);
-    scene->scale(room, dim);
-    return room;
+    else if (lastVal == 2) {
+        if (currVal == 2) return true;
+        if (currVal == 1) return false;
+        if (currVal == 4) {
+            int dir = 0;
+            for (int i = 0; i < 4; i++) {
+                if (lastGridPos[i] != currGridPos[i]) {
+                    dir = lastGridPos[i] - currGridPos[i] == -1 ? i * 2 : i * 2 + 1;
+                    break;
+                }
+            }
+            return contains(doorways[currGridPos], dir);
+        }
+    }
+    else if (lastVal == 4) {
+        if (currVal == 1 || currVal == 4) return true;
+        if (currVal == 2) {
+            int dir = 0;
+            for (int i = 0; i < 4; i++) {
+                if (lastGridPos[i] != currGridPos[i]) {
+                    dir = currGridPos[i] - lastGridPos[i] == -1 ? i * 2 : i * 2 + 1;
+                    break;
+                }
+            }
+            return contains(doorways[lastGridPos], dir);
+        }
+    }
+    else {
+        return false;
+    }
 }

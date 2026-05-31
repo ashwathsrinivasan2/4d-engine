@@ -86,6 +86,7 @@ class Scene{
     //int Sphere(glm::vec3);
 
     int Tesseract(glm::vec3 color = glm::vec3(1.f), bool inverted = false);
+    int Hypersphere(glm::vec3 color = glm::vec3(1.f));
 
     int Cube(glm::vec3 color = glm::vec3(1.f));
 };

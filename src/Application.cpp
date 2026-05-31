@@ -1,24 +1,25 @@
 #include "Application.h"
 
-Application::Application(Scene* scene){
+Application::Application(Scene* scene, WorldGenerator worldGen) {
     this->scene = scene;
+    this->worldGen = worldGen;
     createWindow();
     renderer.initialize(window, scene);
 
 }
 
-Application::~Application(){
+Application::~Application() {
     glfwDestroyWindow(window);
     glfwTerminate();
 }
 
 //window helpers
-void Application::framebufferResizeCallback(GLFWwindow *window, int width, int height){
+void Application::framebufferResizeCallback(GLFWwindow* window, int width, int height) {
     auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
     app->framebufferResized = true;
 }
 
-void Application::createWindow(){
+void Application::createWindow() {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan Engine", nullptr, nullptr);
@@ -30,29 +31,35 @@ void Application::createWindow(){
     glfwSetCursorPos(window, 0, 0);
 }
 
-void Application::run(){
+void Application::run() {
     mainLoop();
     vkDeviceWaitIdle(renderer.getLogicalDevice()); //wait for async operations to finish before proceeding
 }
-void Application::mainLoop(){
+void Application::mainLoop() {
     auto startTime = std::chrono::high_resolution_clock::now();
     auto currentTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-    while(!glfwWindowShouldClose(window)){
+    bool gameEnd = false;
+
+    while (!gameEnd && !glfwWindowShouldClose(window)) {
         startTime = currentTime;
         glfwPollEvents();
         handleInput(time);
         renderer.drawFrame();
+        gameEnd = worldGen.checkInGoalRoom(scene->getCamera().getPosition());
         currentTime = std::chrono::high_resolution_clock::now();
         time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
     }
 }
 
-void Application::handleInput(float time){
+void Application::handleInput(float time) {
     int lastKeyUp = keyUp;
     int lastKeyDown = keyDown;
     int lastKeyRight = keyRight;
     int lastKeyLeft = keyLeft;
+    int lastKeySpace = keySpace;
+
+    glm::vec4 lastPosition = scene->getCamera().getPosition();
 
     keyW = glfwGetKey(window, GLFW_KEY_W);
     keyA = glfwGetKey(window, GLFW_KEY_A);
@@ -60,6 +67,7 @@ void Application::handleInput(float time){
     keyD = glfwGetKey(window, GLFW_KEY_D);
     keyQ = glfwGetKey(window, GLFW_KEY_Q);
     keyE = glfwGetKey(window, GLFW_KEY_E);
+    keySpace = glfwGetKey(window, GLFW_KEY_SPACE);
 
     keyUp = glfwGetKey(window, GLFW_KEY_UP);
     keyDown = glfwGetKey(window, GLFW_KEY_DOWN);
@@ -68,18 +76,18 @@ void Application::handleInput(float time){
     mousePressed = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
 
 
-    
 
-    if(keyW == GLFW_PRESS){
+
+    if (keyW == GLFW_PRESS) {
         scene->getCamera().moveForward(time);
     }
-    if(keyA == GLFW_PRESS){
+    if (keyA == GLFW_PRESS) {
         scene->getCamera().moveLeft(time);
     }
-    if(keyS == GLFW_PRESS){
+    if (keyS == GLFW_PRESS) {
         scene->getCamera().moveBackward(time);
     }
-    if(keyD == GLFW_PRESS){
+    if (keyD == GLFW_PRESS) {
         scene->getCamera().moveRight(time);
     }
     if (keyQ == GLFW_PRESS) {
@@ -87,6 +95,12 @@ void Application::handleInput(float time){
     }
     if (keyE == GLFW_PRESS) {
         scene->getCamera().moveAna(time);
+    }
+
+    glm::vec4 currPosition = scene->getCamera().getPosition();
+
+    if (!worldGen.isValidMove(lastPosition, currPosition)){
+        scene->getCamera().setPosition(lastPosition);
     }
 
     if (lastKeyUp != GLFW_PRESS && keyUp == GLFW_PRESS) {
@@ -100,6 +114,11 @@ void Application::handleInput(float time){
     }
     if (lastKeyLeft != GLFW_PRESS && keyLeft == GLFW_PRESS) {
         scene->getCamera().rotate(2, -glm::pi<float>() / 2.f);
+    }
+
+    if (lastKeySpace != GLFW_PRESS && keySpace == GLFW_PRESS) {
+        glm::ivec4 gridPos = worldGen.worldToGrid(scene->getCamera().getPosition());
+        printVec("gridPos", glm::vec4(gridPos));
     }
 
     static bool firstFrame = true;

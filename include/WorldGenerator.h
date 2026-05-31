@@ -202,8 +202,11 @@ class WorldGenerator {
     float edgeSelectionProbability = 0.15f;
 
     glm::vec4 doorDimensions = glm::vec4(1.f);
-    glm::ivec4 minRoomDim = glm::ivec4(1, 1, 1, 1);
-    glm::ivec4 maxRoomDim = glm::ivec4(3, 3, 3, 3);
+    glm::ivec4 minRoomDim = glm::ivec4(1, 1, 2, 1);
+    glm::ivec4 maxRoomDim = glm::ivec4(4, 4, 4, 4);
+
+    int startRoom = 0;
+    int endRoom = 0;
 
 
 
@@ -266,6 +269,10 @@ class WorldGenerator {
         return false;
     }
 
+    inline float distSquared(glm::vec4 v) {
+        return v.x * v.x + v.y * v.y + v.z * v.z + v.w * v.w;
+    }
+
     inline glm::vec4 getTranslate(glm::vec4 scalar, glm::ivec4 startCorner, glm::ivec4 currMin, bool posSide, int side) {
         scalar[side] = 0.f;
         glm::vec4 translate = scalar / 2.f      //move section's minCorner to world origin
@@ -306,12 +313,20 @@ class WorldGenerator {
             }
         }
 
+        worldGrid[3][2][2][2] = 4;
+        worldGrid[2][3][2][2] = 4;
+        worldGrid[2][2][3][2] = 4;
+        worldGrid[2][2][2][3] = 4;
     }
 
 public:
-    WorldGenerator(Scene*);
+    WorldGenerator(Scene* scene = nullptr);
     int randGenerate();
     glm::vec4 getSpawnPos();
+    glm::ivec4 worldToGrid(glm::vec4);
+
+    bool checkInGoalRoom(glm::vec4);
+    bool isValidMove(glm::vec4, glm::vec4);
 };
 
 #endif

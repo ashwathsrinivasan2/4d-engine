@@ -92,7 +92,7 @@ int main(){
     //scene.rotate(fullTest, 5, glm::asin(1.f / sqrt(3.f)));
     
     scene.getCamera().setMode("fpv");
-    //scene.getCamera().setSpawn(generator.getSpawnPos());
-    Application app(&scene);
+    scene.getCamera().setSpawn(generator.getSpawnPos());
+    Application app(&scene, generator);
     app.run();
 }

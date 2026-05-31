@@ -6,6 +6,7 @@
 
 #include "Scene.h"
 #include "Renderer.h"
+#include "WorldGenerator.h"
 
 class Application{
 
@@ -17,6 +18,7 @@ class Application{
 
     Renderer renderer;
     Scene* scene;
+    WorldGenerator worldGen;
 
     void mainLoop();
     void handleInput(float);
@@ -36,11 +38,24 @@ class Application{
     int keyRight;
     int keyLeft;
 
+    int keySpace;
+
     bool mousePressed;
+
+    glm::vec4 lastPosition;
+
+    inline void printVec(std::string name, glm::vec4 vec) {
+        std::cout << name << ": {";
+        for (int i = 0; i < 4; i++) {
+            std::cout << vec[i];
+            if (i != 4) std::cout << " ";
+        }
+        std::cout << "}" << std::endl;
+    }
 
     public:
 
-    Application(Scene* scene);
+    Application(Scene* scene, WorldGenerator worldGen);
     ~Application();
     void createWindow();
     void run();

@@ -407,6 +407,7 @@ int Scene::Tesseract(glm::vec3 color, bool inverted){
     return createEntity(vertexData, inverted);
 }
 
+
 int Scene::Cube(glm::vec3 color) {
     std::vector<Vertex> vertexData = {
         { {-0.5, -0.5, -0.5, 0.5}, color, {0, 0, 0, 1}, {0.f, 0.f, 0.f} },

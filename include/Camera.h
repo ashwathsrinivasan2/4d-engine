@@ -55,6 +55,8 @@ class Camera{
     void setSpawn(glm::vec4 origin){eye = origin; spawn = origin;}
     glm::vec4 getSpawn(){return spawn;}
 
+    void setPosition(glm::vec4 pos) { eye = pos; }
+
     void setMode(std::string);
     
     void moveForward(float);
