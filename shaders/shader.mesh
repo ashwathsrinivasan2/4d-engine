@@ -53,6 +53,7 @@ layout(location = 0) out vec4 outColor[];
 layout(location = 1) out vec4 outNormal[];
 layout(location = 2) out vec4 outTexCoord[];
 layout(location = 3) out vec4 outWorldPos[];
+layout(location = 4) out vec4 outCamPos[];
 
 Vertex getInterpolatedVertex(uint firstIndex, uint secondIndex, mat4 model, vec4 modelTranslate, out vec4 worldPos){
 
@@ -138,6 +139,7 @@ void main(){
         outColor[i]    = interpolatedVertices[i].color;
         outTexCoord[i] = interpolatedVertices[i].texCoord;
         outWorldPos[i] = worldPositions[i];
+        outCamPos[i] = -ubo.viewTranslate;
     }
 
     gl_PrimitiveTriangleIndicesEXT[0] = uvec3(0, 1, 2);

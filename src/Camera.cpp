@@ -15,7 +15,7 @@ Camera::Camera(){
     lastMousePos = glm::vec2(0.0f, 0.0f);
     sensitivity = 5.f;
     speed = 8.f;
-    fov = glm::radians(90.0f);
+    fov = glm::radians(120.0f);
 
     float rotationPlanes[6] = { 0.f, 0.f, 0.f, 0.f, 0.f, 0.f };
 }
@@ -128,17 +128,7 @@ void Camera::orthonormalize() {
     rightVector = glm::normalize(rightVector);
    
     anaVector = glm::normalize(anaVector);
-    int currMax = 0;
-    int sign = 1;
-    for (int i = 1; i < 4; i++) {
-        if (abs(anaVector[i]) > abs(anaVector[currMax])) {
-            currMax = i;
-            sign = anaVector[i] < 0.f ? -1 : 1;
-        }
-    }
-    anaVector = glm::vec4(0.f);
-    anaVector[currMax] = sign;
-
+    
     rightVector = glm::normalize(rightVector - glm::dot(rightVector, anaVector) * anaVector);
     upVector = glm::normalize(upVector
         - glm::dot(upVector, anaVector) * anaVector
@@ -213,6 +203,50 @@ void Camera::rotate(int planeID, float amount) {
 
 }
 
+void Camera::initializeOrthogonalRotation(bool posRotation) {
+    right = rightVector;
+    up = upVector;
+    view = viewVector;
+    ana = anaVector;
+
+    this->posRotation = posRotation;
+    lastInterpolationFactor = 0.f;
+}
+void Camera::orthogonalZWRotate(float interpolationFactor) {
+    
+    float radians = smoothstep(0.f, glm::pi<float>() / 2.f, interpolationFactor) - smoothstep(0.f, glm::pi<float>() / 2.f, lastInterpolationFactor);
+    lastInterpolationFactor = interpolationFactor;
+   
+
+    Rotor newRotation(glm::vec4(0.f, 0.f, -1.f, 0.f), glm::vec4(0.f, 0.f, 0.f, 1.f), radians);
+
+    currRotation.rotate(newRotation);
+    rightVector = currRotation.apply(glm::vec4(1.f, 0.f, 0.f, 0.f));
+    viewVector = currRotation.apply(glm::vec4(0.f, 0.f, -1.f, 0.f));
+    upVector = currRotation.apply(glm::vec4(0.f, 1.f, 0.f, 0.f));
+    anaVector = currRotation.apply(glm::vec4(0.f, 0.f, 0.f, 1.f));
+    orthonormalize();
+
+    
+}
+void Camera::finalizeOrthogonalRotation() {
+    anaVector = glm::normalize(anaVector);
+    int currMax = 0;
+    int sign = 1;
+    for (int i = 1; i < 4; i++) {
+        if (abs(anaVector[i]) > abs(anaVector[currMax])) {
+            currMax = i;
+            sign = anaVector[i] < 0.f ? -1 : 1;
+        }
+    }
+
+    anaVector = glm::vec4(0.f);
+    anaVector[currMax] = sign;
+
+    orthonormalize();
+
+    printVectors();
+}
 
 void Camera::zoom(float newFOV){
     fov = newFOV;

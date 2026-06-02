@@ -32,6 +32,12 @@ void Application::createWindow() {
 }
 
 void Application::run() {
+    PlaySoundW(
+        LR"(C:\Users\ashwa\VisualStudioProjects\4DEngine\4DEngine\audio\Somewhere Right Now In The Future.wav)",
+
+        NULL,
+        SND_FILENAME | SND_ASYNC | SND_LOOP
+    );
     mainLoop();
     vkDeviceWaitIdle(renderer.getLogicalDevice()); //wait for async operations to finish before proceeding
 }
@@ -53,6 +59,17 @@ void Application::mainLoop() {
 }
 
 void Application::handleInput(float time) {
+
+    if (rotating) {
+        rotationTime += time;
+        scene->getCamera().orthogonalZWRotate(rotationTime / totalRotationTime);
+        if (rotationTime >= totalRotationTime) {
+            scene->getCamera().finalizeOrthogonalRotation();
+            rotating = false;
+        }
+        return;
+    }
+
     int lastKeyUp = keyUp;
     int lastKeyDown = keyDown;
     int lastKeyRight = keyRight;
@@ -117,8 +134,9 @@ void Application::handleInput(float time) {
     }
 
     if (lastKeySpace != GLFW_PRESS && keySpace == GLFW_PRESS) {
-        glm::ivec4 gridPos = worldGen.worldToGrid(scene->getCamera().getPosition());
-        printVec("gridPos", glm::vec4(gridPos));
+        scene->getCamera().initializeOrthogonalRotation(true);
+        rotating = true;
+        rotationTime = 0.f;
     }
 
     static bool firstFrame = true;

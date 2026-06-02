@@ -4,6 +4,11 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#include <windows.h>
+#include <mmsystem.h>
+
+
+#pragma comment(lib, "winmm.lib")
 #include "Scene.h"
 #include "Renderer.h"
 #include "WorldGenerator.h"
@@ -41,6 +46,14 @@ class Application{
     int keySpace;
 
     bool mousePressed;
+
+    bool rotating = false;
+    float rotationTime = 0.f;
+    float totalRotationTime = 2.f;
+
+    //audio
+    std::wstring backgroundMusicFilename = L"C:\Users\ashwa\VisualStudioProjects\4DEngine\4DEngine\audio\Somewhere Right Now In The Future.wav";
+
 
     glm::vec4 lastPosition;
 

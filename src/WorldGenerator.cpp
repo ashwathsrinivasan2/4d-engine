@@ -1370,7 +1370,7 @@ bool WorldGenerator::isValidMove(glm::vec4 last, glm::vec4 curr) {
     glm::ivec4 currGridPos = worldToGrid(curr);
     int lastVal = getGridVal(lastGridPos);
     int currVal = getGridVal(currGridPos);
-    if (currVal == 0) return false;
+    if (currVal == 0 || currVal == -1) return false;
     if (lastVal == 0) return true;
     if (lastVal == 1) {
         if (currVal == 1 || currVal == 4) return true;

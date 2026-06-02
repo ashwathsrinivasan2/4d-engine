@@ -5,6 +5,7 @@ layout(location = 0) in vec4 fragColor;
 layout(location = 1) in vec4 worldNormal;
 layout(location = 2) in vec4 texCoord;
 layout(location = 3) in vec4 worldPos;
+layout(location = 4) in vec4 camPos;
 
 layout(location = 0) out vec4 outColor;
 
@@ -27,6 +28,7 @@ vec3 calculateTexColor(vec3 texCoord){
 }
 
 void main(){
+    lightPos = camPos;
     vec4 lightDirection = normalize(worldPos - lightPos);
     float distance = length(worldPos - lightPos);
     distance = max(distance, 0.5);
