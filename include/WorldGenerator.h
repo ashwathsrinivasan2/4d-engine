@@ -197,11 +197,11 @@ class WorldGenerator {
     std::vector<std::vector<std::vector<std::vector<unsigned>>>> worldGrid;
 
     float gridScale = 5.f;
-    unsigned gridRes = 8;
-    int numRooms = 10;
+    unsigned gridRes = 16;
+    int numRooms = 100;
     float edgeSelectionProbability = 0.15f;
 
-    glm::vec4 doorDimensions = glm::vec4(1.f);
+    glm::vec4 doorDimensions = glm::vec4(0.6667f, 0.8f, 0.6667f, 0.6667f);
     glm::ivec4 minRoomDim = glm::ivec4(1, 1, 2, 1);
     glm::ivec4 maxRoomDim = glm::ivec4(4, 4, 4, 4);
 
@@ -226,6 +226,8 @@ class WorldGenerator {
     glm::ivec4 getRandIvec4(glm::ivec4, glm::ivec4);
 
     unsigned getGridVal(glm::ivec4);
+
+    glm::vec4 gridToWorld(glm::ivec4);
 
     //builder functions
     int wallWithDoor(glm::vec4, glm::vec3, int);

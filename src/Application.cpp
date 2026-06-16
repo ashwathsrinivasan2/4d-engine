@@ -115,10 +115,20 @@ void Application::handleInput(float time) {
     }
 
     glm::vec4 currPosition = scene->getCamera().getPosition();
+    glm::vec4 delta = currPosition - lastPosition;
+    
 
-    if (!worldGen.isValidMove(lastPosition, currPosition)){
-        scene->getCamera().setPosition(lastPosition);
+    //check if movement is valid in each dimension
+
+    for (int i = 0; i < 4; i++) {
+        glm::vec4 dimCheck = lastPosition;
+        dimCheck[i] = lastPosition[i] + 20.f * delta[i];
+        if (!worldGen.isValidMove(lastPosition, dimCheck)) {
+            currPosition[i] = lastPosition[i];
+        }
     }
+
+    scene->getCamera().setPosition(currPosition);
 
     if (lastKeyUp != GLFW_PRESS && keyUp == GLFW_PRESS) {
         scene->getCamera().rotate(5, glm::pi<float>() / 2.f);

@@ -428,93 +428,15 @@ bool WorldGenerator::checkAdjacentCellsMatch(glm::ivec4 a, glm::ivec4 b) {
     return true;
 }
 
+glm::vec4 WorldGenerator::gridToWorld(glm::ivec4 gridPos) {
+    return glm::vec4(gridPos) - glm::vec4(gridRes / 2.f) + glm::vec4(0.5f);
+}
 
 
 int WorldGenerator::createMeshes() {
 
-    //testGrid();
-    /*
-    std::vector<int> units;
-
-    for (int i = 0; i < gridRes; i++) {
-        for (int j = 0; j < gridRes; j++) {
-            for (int k = 0; k < gridRes; k++) {
-                for (int l = 0; l < gridRes; l++) {
-                    int currCell = worldGrid[i][j][k][l];
-                    int currUnit;
-                    if (currCell == 1) {
-                        units.push_back(scene->Tesseract(glm::vec3(1.f, 0.f, 0.f)));
-                    } else if (currCell == 2) {
-                        units.push_back(scene->Tesseract(glm::vec3(0.f, 1.f, 0.f)));
-                    }
-                    else if (currCell == 3) {
-                        units.push_back(scene->Tesseract(glm::vec3(1.f, 1.f, 0.f)));
-                    }
-                    else if (currCell == 4) {
-                        units.push_back(scene->Tesseract(glm::vec3(0.5f, 0.f, 1.f)));
-                    }
-                    else {
-                        continue;
-                    }
-
-                    glm::vec4 pos((float)i, (float)j, (float)k, (float)l);
-                    pos -= glm::vec4(float(gridRes) / 2.f);
-                    pos += glm::vec4(0.5f);
-                    scene->translate(units[units.size() - 1], pos);
-                }
-            }
-        }
-    }
-
-
-    int map = scene->groupEntities(units);
-    scene->scale(map, glm::vec4(gridScale));
-    scene->translate(map, glm::vec4((float)gridRes * gridScale, 0.f, 0.f, 0.f));
-    */
-    
-
+    //add rooms
     std::vector<int> meshData;
-
-    //add walls
-        //for i = 0 - 8
-        //constant component = i / 2
-        //pos wall = i % 2 == 1
-        //use those to determine starting corner (minCorner for neg walls, minCorner + const component size for pos wall)
-        //use to determine ending corner (starting corner plus size of non const components)
-        //keep track of a currMin and doorPos, starts at starting corner
-        // 
-        //check
-            //first in one direction: are there any doorway cells here
-            //then in the other direction: are there any doors in this 2d slice
-        //if check returns no door
-        //repeat check until check returns a door, set doorPos to this cell position
-        //block of no doors from currMin to one less than doorPos in third dimension
-        //block of no doors from currMin(with third dimension set to doorPos) to one less than doorPos in second dimension
-        //block of no doors from currMin(with second and third dimension set to doorPos) to one less than doorPos in first dimension
-        //note that for the above blocks, must also incorporate the offset of the door in the block in each direction based on doorDimensions
-            
-    //after one iteration of the check loop (one door found), set currMin to doorPos plus one in the first dimension and repeat
-    //eventually instead of hitting a door cell, the loop will be terminated by hitting the ending corner of the wall. simply repeat the process 
-
-    //you actually need to first go in the first dimension direction, until you are at the start of the next first dimensional segment
-    //then in the second dimension direction until you are at the start of the next second dimensional segment
-    //then you can check 2d slices until you hit the door pos, and go back down to the door
-
-    //so final order is
-        //finish row(1D)
-        //finish grid(2D)
-        //fill space(3D)
-        //fill remaining grid(2D)
-        //fill remaining row(1D)
-
-    //the thing i didnt talk about here is translates
-        //everything is initially spawned at the origin in world space
-        //high level the steps are
-            //translate so minCorner is at origin instead of center
-            //translate to room from origin to match minCorner of cube with minCorner of room
-            //then translate from minCorner of room to whatever grid cell corner it needs to align with
-
-    //loop through rooms
     for (int i = 0; i < rooms.size(); i++) {
 
         //global grid coordinates
@@ -592,6 +514,7 @@ int WorldGenerator::createMeshes() {
                                 length = (float)(dim[c] - currMin[c]);
                                 if (currMin[a] == offset[a] && currMin[b] == offset[b]) {
                                     length = (float)(offset[c] - currMin[c] - 1);
+                                    
                                     doorReached = true;
                                 }
 
@@ -600,8 +523,6 @@ int WorldGenerator::createMeshes() {
                                     glm::vec4 scalar(1.f);
                                     scalar[c] = length;
                                     glm::vec4 translate = getTranslate(scalar, startCorner, currMin, posSide, side);
-          
-
                                     scene->scale(wallSection, scalar);
                                     scene->translate(wallSection, translate);
                                     sections.push_back(wallSection);
@@ -631,6 +552,7 @@ int WorldGenerator::createMeshes() {
                                 length = (float)(dim[b] - currMin[b]);
                                 if (currMin[a] == offset[a]) {
                                     length = (float)(offset[b] - currMin[b] - 1);
+
                                     doorReached = true;
                                 }
 
@@ -817,13 +739,108 @@ int WorldGenerator::createMeshes() {
         meshData.push_back(room);
     }
     
-    
-    //add straight corridors
-    //accumulate list of all corridor paths when generating corridor cells
-    //for each path go through each position, and if the position neighborhood matches the previous position neighborhood, append that position
-    //store appended positions in a hallway struct
-    //if a position neighborhood does not match, end current corridor, skip current position and restart
+    //add doorways
+    std::vector<int> doorFrames;
+    for (auto& doorway : doorways) {
+        glm::ivec4 position = doorway.first;
+        std::vector<int> directions = doorway.second;
+        glm::vec3 color(0.f, 0.5f, 0.f);
+        for(int i = 0; i < directions.size(); i++){
+            directions[i] += directions[i] % 2 == 0 ? 1 : -1;
+        }
 
+        for (int i = 0; i < directions.size(); i++) {
+            int dir = directions[i] / 2;
+
+            std::vector<int> doorFrame;
+
+            int pos, neg;
+            glm::vec4 translate(0.f);
+
+            //first pair of walls
+            int curr = (dir + 1) % 4;
+            
+            glm::vec4 scalar(1.f);
+            scalar[curr] = (1.f - doorDimensions[curr]) / 2.f;
+
+            if (scalar[curr] != 0.f) {
+                pos = getOrientedCube(directions[i], color);
+                neg = getOrientedCube(directions[i], color);
+                translate = glm::vec4(0.f);
+                translate[curr] = -0.5f + (1.f - doorDimensions[curr]) / 4.f;
+                scene->translate(pos, translate);
+                scene->translate(neg, -translate);
+                scene->scale(pos, scalar);
+                scene->scale(neg, scalar);
+
+                doorFrame.push_back(pos);
+                doorFrame.push_back(neg);
+            }
+
+            //second pair of walls
+            curr = (curr + 1) % 4;
+
+            scalar = glm::vec4(1.f);
+            scalar[curr] = (1.f - doorDimensions[curr]) / 2.f;
+            int prev = curr > 0 ? curr - 1 : 3;
+            scalar[prev] = doorDimensions[prev];
+
+            if (scalar[curr] != 0.f) {
+                pos = getOrientedCube(directions[i], color);
+                neg = getOrientedCube(directions[i], color);
+                translate = glm::vec4(0.f);
+                translate[curr] = -0.5f + (1.f - doorDimensions[curr]) / 4.f;
+                scene->translate(pos, translate);
+                scene->translate(neg, -translate);
+                scene->scale(pos, scalar);
+                scene->scale(neg, scalar);
+
+                doorFrame.push_back(pos);
+                doorFrame.push_back(neg);
+            }
+
+            //third pair of walls
+            curr = (curr + 1) % 4;
+
+            scalar = glm::vec4(1.f);
+            scalar[curr] = (1.f - doorDimensions[curr]) / 2.f;
+            prev = curr > 0 ? curr - 1 : 3;
+            scalar[prev] = doorDimensions[prev];
+            prev = prev > 0 ? prev - 1 : 3;
+            scalar[prev] = doorDimensions[prev];
+
+            if (scalar[curr] != 0.f) {
+                pos = getOrientedCube(directions[i], color);
+                neg = getOrientedCube(directions[i], color);
+                translate = glm::vec4(0.f);
+                translate[curr] = -0.5f + (1.f - doorDimensions[curr]) / 4.f;
+                scene->translate(pos, translate);
+                scene->translate(neg, -translate);
+                scene->scale(pos, scalar);
+                scene->scale(neg, scalar);
+
+                doorFrame.push_back(pos);
+                doorFrame.push_back(neg);
+            }
+
+            //position door frame
+            if (doorFrame.size() > 0) {
+                int frame = scene->groupEntities(doorFrame);
+                translate = gridToWorld(position);
+                translate[directions[i] / 2] += directions[i] % 2 == 0 ? 0.5f : -0.5f;
+                scene->translate(frame, translate);
+                doorFrames.push_back(frame);
+            }
+        }
+    }
+    
+    //scale door frames to world size
+    if (doorFrames.size() > 0) {
+        int frames = scene->groupEntities(doorFrames);
+        scene->scale(frames, glm::vec4(gridScale));
+    }
+
+    //add corridors
     std::vector<int> corridorMeshData;
     for (int i = 0; i < corridors.size(); i++) {
         
@@ -849,7 +866,6 @@ int WorldGenerator::createMeshes() {
     }
 
     //add corridor corners/intersections
-
     for (int i = 0; i < corridorCorners.size(); i++) {
 
         int corner = corridorCorner(corridorCorners[i].walledDirections);
@@ -861,11 +877,11 @@ int WorldGenerator::createMeshes() {
         scene->translate(corner, translation);
     }
 
+    //scale corridors to world size
     int corridorSection = scene->groupEntities(corridorMeshData);
     scene->scale(corridorSection, glm::vec4(gridScale));
 
     return 0;
-    return scene->groupEntities(meshData);
 }
 
 
@@ -886,7 +902,7 @@ std::vector<glm::ivec4> WorldGenerator::aStar(int roomA, int roomB) {
     std::vector<std::vector<int>> weights = {
         {10, 9999, 1, 10, 10},
         {10, 10, 1, 9999, 9999},
-        {10, 9999, 1, 10, 10},
+        {10, 9999, 1, 20, 10},
         {9999, 9999, 9999, 10, 10},
         {10, 10, 1, 9999, 9999}
     };

@@ -446,3 +446,86 @@ int Scene::Cube(glm::vec3 color) {
 
     return createEntity(vertexData, false, glm::vec4(0.f, 0.f, 0.f, -0.5f));
 }
+/*
+int Scene::Hypersphere(glm::vec3 color) {
+    std::vector<Vertex> vData;
+    
+    int detail = 10;
+
+    float theta = 0.f;  //xy rotation
+    float phi = 0.f;    //yz rotation
+    float rho = 0.f;     //zw rotation
+    
+    //make central circle
+    for (int i = 0; i < detail; i++) {
+        glm::vec4 pos = hyperSphericalToCartesian(theta, phi, rho);
+        Vertex newVertex(pos, color, pos, { 0.f, 0.f, 0.f });
+
+        theta += 2.f * glm::pi<float>() / (float)detail;
+    }
+
+    //add hypersphere points
+    for (int k = 0; k < detail; k++) {
+        rho = 2.f * glm::pi<float>() / (float)detail * (float)k;
+        for (int i = 1; i < detail / 2; i++) {
+            phi = 2.f * glm::pi<float>() / (float)detail * (float)i;
+            for (int j = 1; j < detail / 2; j++) {
+                theta = 2.f * glm::pi<float>() / (float)detail * (float)j;
+
+                glm::vec4 pos = hyperSphericalToCartesian(theta, phi, rho);
+                Vertex newVertex(pos, color, pos, { 0.f, 0.f, 0.f });
+            }
+        }
+    }
+
+    //connect hypersphere points
+    //basically in a sphere you create one quad for every pair of adjacent points that are not colinear 
+    //gives you 4 (pos theta + pos phi, pos theta + neg phi, neg theta + pos phi, neg theta + neg phi)
+    //a hypersphere has you create a cube for every quad
+
+    //original circle - [0, detail - 1]
+    //first sphere - [detail, detail + (detail / 2 - 1) ^ 2 - 1]
+    //second sphere - [detail + (detail / 2 - 1) ^ 2, detail + 2 * (detail / 2 - 1) ^ 2 - 1]
+    //nth sphere - [detail + (n-1) * (detail / 2 - 1) ^ 2, detail + n * (detail / 2 - 1) ^ 2 - 1]
+}
+
+glm::vec4 rotateVec(glm::vec4 vec, float radians, int planeID) {
+    glm::mat4 rot(1.f);
+    float c = glm::cos(radians);
+    float s = glm::sin(radians);
+
+    int indexA = 0;
+    int indexB = 0;
+    switch (planeID) {
+    case 0:
+        indexA = 0;
+        indexB = 1;
+        break;
+    case 3:
+        indexA = 1;
+        indexB = 2;
+        break;
+    case 5:
+        indexA = 2;
+        indexB = 3;
+        break;
+    default:
+        return glm::vec4(0.f);
+    }
+
+    rot[indexA][indexA] = c;
+    rot[indexA][indexB] = s;
+    rot[indexB][indexA] = -s;
+    rot[indexB][indexB] = c;
+
+    return rot * vec;
+}
+
+glm::vec4 hyperSphericalToCartesian(float theta, float phi, float rho) {
+    glm::vec4 final(0.f, 1.f, 0.f, 0.f);
+    final = rotateVec(final, theta, 0);
+    final = rotateVec(final, phi, 3);
+    final = rotateVec(final, rho, 5);
+    return glm::normalize(final);
+}
+*/

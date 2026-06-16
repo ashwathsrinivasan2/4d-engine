@@ -13,6 +13,7 @@
 #include "Application.h"
 #include "Rotor.h"
 #include "WorldGenerator.h"
+#include "GeometryGenerator.h"
 
 
 template<typename T>
@@ -35,6 +36,8 @@ inline void printVec(std::string name, glm::vec4 vec) {
 }
 
 int main(){
+    //GeometryGenerator gen;
+    //return 0;
     Scene scene;
     srand(time(NULL));
 

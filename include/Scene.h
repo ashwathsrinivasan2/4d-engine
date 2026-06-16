@@ -78,7 +78,6 @@ class Scene{
     int getNumTetrahedrons() { return vertices.size() / 4; }
 
     int groupEntities(std::vector<int> entities = {});
-    
 
     //Entity Factory Functions
     //int Cube(glm::vec3);
@@ -86,7 +85,7 @@ class Scene{
     //int Sphere(glm::vec3);
 
     int Tesseract(glm::vec3 color = glm::vec3(1.f), bool inverted = false);
-    int Hypersphere(glm::vec3 color = glm::vec3(1.f));
+    //int Hypersphere(glm::vec3 color = glm::vec3(1.f));
 
     int Cube(glm::vec3 color = glm::vec3(1.f));
 };
