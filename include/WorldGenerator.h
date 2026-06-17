@@ -170,10 +170,9 @@ class WorldGenerator {
         glm::ivec4 start;
         glm::ivec4 end;
         int direction;
-        int numCornerEndpoints;
 
-        Corridor(glm::ivec4 s, glm::ivec4 g, int dir, int corners) :
-            start(s), end(g), direction(dir), numCornerEndpoints(corners){ }
+        Corridor(glm::ivec4 s, glm::ivec4 g, int dir) :
+            start(s), end(g), direction(dir){ }
     };
 
     struct CorridorCorner {
@@ -196,12 +195,12 @@ class WorldGenerator {
 
     std::vector<std::vector<std::vector<std::vector<unsigned>>>> worldGrid;
 
-    float gridScale = 5.f;
+    float gridScale = 6.5f;
     unsigned gridRes = 16;
     int numRooms = 100;
     float edgeSelectionProbability = 0.15f;
 
-    glm::vec4 doorDimensions = glm::vec4(0.6667f, 0.8f, 0.6667f, 0.6667f);
+    glm::vec4 doorDimensions = glm::vec4(0.5f, 0.75f, 0.5f, 0.5f);
     glm::ivec4 minRoomDim = glm::ivec4(1, 1, 2, 1);
     glm::ivec4 maxRoomDim = glm::ivec4(4, 4, 4, 4);
 

@@ -235,63 +235,67 @@ int WorldGenerator::randGenerate() {
 
         glm::ivec4 currStart = path[start];
         glm::ivec4 currEnd = currStart;
-        
-        //take care of all corridor corners at beginning of path
-        while (start <= end && !checkIfStraight(currStart)) {
-            CorridorCorner newCorner(getWalledDirections(currStart), currStart);
+        bool corridorStored = false;
 
-            bool duplicate = false;
-            for (int i = 0; i < corridorCorners.size(); i++) {
-                if (corridorCorners[i].position == currStart) {
-                    duplicate = true;
-                }
-            }
-
-            if (!duplicate) {
-                corridorCorners.push_back(newCorner);
-            }
-            start++;
-            currStart = path[start];
-            currEnd = currStart;
-        }
-
-        for (int j = start; j <= end; j++) {
+        for(int j = start; j <= end; j++){
             
-            if (checkIfStraight(path[j + 1])) {
-                currEnd = path[j + 1];
-            }
-            else {
-
-                //get direction of corridor segment
-                int dir;
-                if (path[j].x != path[j + 1].x) {
-                    dir = 0;
-                }
-                else if (path[j].y != path[j + 1].y) {
-                    dir = 1;
-                }
-                else if (path[j].z != path[j + 1].z) {
-                    dir = 2;
-                }
-                else if (path[j].w != path[j + 1].w) {
-                    dir = 3;
-                }
-                else {
-                    throw std::runtime_error("issue here");
-                }
+            if (checkIfStraight(path[j])) {
+                currEnd = path[j];
+                corridorStored = true;
+            } else {
 
                 //add corridor segment
-                int numCornerEndpoints = 0;
-                Corridor newCorridor(currStart, currEnd, dir, numCornerEndpoints);
-                corridors.push_back(newCorridor);
+                if (corridorStored) {
+                    //get direction of corridor segment
+                    int numDiff = 0;
+                    for (int k = 0; k < 4; k++) {
+                        if (currStart[k] != path[j][k]) {
+                            numDiff++;
+                        }
+                    }
+                    if (numDiff != 1) std::cout << "ERROR" << std::endl;
+                    int dir;
+                    if (currStart.x != path[j].x) {
+                        dir = 0;
+                    }
+                    else if (currStart.y != path[j].y) {
+                        dir = 1;
+                    }
+                    else if (currStart.z != path[j].z) {
+                        dir = 2;
+                    }
+                    else if (currStart.w != path[j].w) {
+                        dir = 3;
+                    }
+                    else {
+                        std::cout << "ERROR" << std::endl;
+                    }
+
+                    //check if already added
+                    bool duplicate = false;
+                    for (int k = 0; k < corridors.size(); k++) {
+                        if (corridors[k].start == currStart) {
+                            duplicate = true;
+                            break;
+                        }
+                    }
+
+                    if (!duplicate) {
+                        Corridor newCorridor(currStart, currEnd, dir);
+                        corridors.push_back(newCorridor);
+                    }
+
+                    
+                }
+                corridorStored = false;
                 
-                //add corner after corridor segment (if not already added)
-                if (getGridVal(path[j + 1]) != 1 && getGridVal(path[j + 1]) != 4) {
-                    CorridorCorner newCorner(getWalledDirections(path[j + 1]), path[j + 1]);
+                //add corner if not already added
+                if (j <= end) {
+                    CorridorCorner newCorner(getWalledDirections(path[j]), path[j]);
 
                     bool duplicate = false;
-                    for (int i = 0; i < corridorCorners.size(); i++) {
-                        if (corridorCorners[i].position == path[j + 1]) {
+                    for (int k = 0; k < corridorCorners.size(); k++) {
+                        if (corridorCorners[k].position == path[j]) {
                             duplicate = true;
                         }
                     }
@@ -301,46 +305,10 @@ int WorldGenerator::randGenerate() {
                     }
                 }
 
-                //check for more corners
-                if (j + 2 <= end) {
-                    currStart = path[j + 2];
-                    currEnd = currStart;
-                    j++;
-                    while (j + 2 <= end && !checkIfStraight(currStart)) {
-                        if (getGridVal(currStart) != 1 && getGridVal(currStart) != 4) {
-                            CorridorCorner newCorner(getWalledDirections(currStart), currStart);
-                            bool duplicate = false;
-                            for (int i = 0; i < corridorCorners.size(); i++) {
-                                if (corridorCorners[i].position == path[j + 1]) {
-                                    duplicate = true;
-                                }
-                            }
-
-                            if (!duplicate) {
-                                corridorCorners.push_back(newCorner);
-                            }
-                        }
-                        currStart = path[j + 2];
-                        currEnd = currStart;
-                        j++;
-                    }
-                }
-
-                if (j + 2 > end) {
-                    CorridorCorner newCorner(getWalledDirections(currStart), currStart);
-                    bool duplicate = false;
-                    for (int i = 0; i < corridorCorners.size(); i++) {
-                        if (corridorCorners[i].position == path[j + 1]) {
-                            duplicate = true;
-                        }
-                    }
-
-                    if (!duplicate) {
-                        corridorCorners.push_back(newCorner);
-                    }
-
-                    break;
-                }
+                currStart = path[j + 1];
+                currEnd = path[j + 1];
+      
+                
             }
         }
     }
