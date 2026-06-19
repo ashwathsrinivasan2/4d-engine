@@ -32,6 +32,7 @@ void Application::createWindow() {
 }
 
 void Application::run() {
+    if(!muted)
     PlaySoundW(
         LR"(C:\Users\ashwa\VisualStudioProjects\4DEngine\4DEngine\audio\Somewhere Right Now In The Future.wav)",
 
@@ -84,6 +85,8 @@ void Application::handleInput(float time) {
     keyD = glfwGetKey(window, GLFW_KEY_D);
     keyQ = glfwGetKey(window, GLFW_KEY_Q);
     keyE = glfwGetKey(window, GLFW_KEY_E);
+    keyP = glfwGetKey(window, GLFW_KEY_P);
+    keyI = glfwGetKey(window, GLFW_KEY_I);
     keySpace = glfwGetKey(window, GLFW_KEY_SPACE);
 
     keyUp = glfwGetKey(window, GLFW_KEY_UP);
@@ -93,7 +96,7 @@ void Application::handleInput(float time) {
     mousePressed = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
 
 
-
+    bool teleported = false;
 
     if (keyW == GLFW_PRESS) {
         scene->getCamera().moveForward(time);
@@ -113,22 +116,44 @@ void Application::handleInput(float time) {
     if (keyE == GLFW_PRESS) {
         scene->getCamera().moveAna(time);
     }
-
-    glm::vec4 currPosition = scene->getCamera().getPosition();
-    glm::vec4 delta = currPosition - lastPosition;
-    
-
-    //check if movement is valid in each dimension
-
-    for (int i = 0; i < 4; i++) {
-        glm::vec4 dimCheck = lastPosition;
-        dimCheck[i] = lastPosition[i] + 20.f * delta[i];
-        if (!worldGen.isValidMove(lastPosition, dimCheck)) {
-            currPosition[i] = lastPosition[i];
-        }
+    if (keyP == GLFW_PRESS) {
+        glm::ivec4 newPos;
+        std::cout << "Enter x: ";
+        std::cin >> newPos.x;
+        std::cout << "Enter y: ";
+        std::cin >> newPos.y;
+        std::cout << "Enter z: ";
+        std::cin >> newPos.z;
+        std::cout << "Enter w: ";
+        std::cin >> newPos.w;
+        scene->getCamera().setPosition(worldGen.gridToWorld(newPos));
+        std::cout << "Position set to ";
+        printVec(glm::vec4(newPos));
+        std::cout << " -> ";
+        printVec(worldGen.gridToWorld(newPos));
+        std::cout << " -> ";
+        printVec(worldGen.worldToGrid(worldGen.gridToWorld(newPos)));
+        std::cout << std::endl;
+        teleported = true;
     }
 
-    scene->getCamera().setPosition(currPosition);
+    if (!teleported && collisionsEnabled) {
+        glm::vec4 currPosition = scene->getCamera().getPosition();
+        glm::vec4 delta = currPosition - lastPosition;
+
+
+        //check if movement is valid in each dimension
+
+        for (int i = 0; i < 4; i++) {
+            glm::vec4 dimCheck = lastPosition;
+            dimCheck[i] = lastPosition[i] + 20.f * delta[i];
+            if (!worldGen.isValidMove(lastPosition, dimCheck)) {
+                currPosition[i] = lastPosition[i];
+            }
+        }
+
+        scene->getCamera().setPosition(currPosition);
+    }
 
     if (lastKeyUp != GLFW_PRESS && keyUp == GLFW_PRESS) {
         scene->getCamera().rotate(5, glm::pi<float>() / 2.f);
@@ -147,7 +172,10 @@ void Application::handleInput(float time) {
         scene->getCamera().initializeOrthogonalRotation(true);
         rotating = true;
         rotationTime = 0.f;
+        printVec(glm::vec4(worldGen.worldToGrid(scene->getCamera().getPosition())));
     }
+
+    
 
     static bool firstFrame = true;
     if (firstFrame) {

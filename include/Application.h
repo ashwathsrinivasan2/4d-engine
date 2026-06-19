@@ -37,6 +37,8 @@ class Application{
     int keyD;
     int keyQ;
     int keyE;
+    int keyP;
+    int keyI;
 
     int keyUp;
     int keyDown;
@@ -46,6 +48,9 @@ class Application{
     int keySpace;
 
     bool mousePressed;
+
+    bool collisionsEnabled = true;
+    bool muted = false;
 
     bool rotating = false;
     float rotationTime = 0.f;
@@ -57,8 +62,8 @@ class Application{
 
     glm::vec4 lastPosition;
 
-    inline void printVec(std::string name, glm::vec4 vec) {
-        std::cout << name << ": {";
+    inline void printVec(glm::vec4 vec) {
+        std::cout << "{";
         for (int i = 0; i < 4; i++) {
             std::cout << vec[i];
             if (i != 4) std::cout << " ";

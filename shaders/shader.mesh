@@ -54,6 +54,7 @@ layout(location = 1) out vec4 outNormal[];
 layout(location = 2) out vec4 outTexCoord[];
 layout(location = 3) out vec4 outWorldPos[];
 layout(location = 4) out vec4 outCamPos[];
+layout(location = 5) out vec4 outScale[];
 
 Vertex getInterpolatedVertex(uint firstIndex, uint secondIndex, mat4 model, vec4 modelTranslate, out vec4 worldPos){
 
@@ -99,6 +100,14 @@ Vertex getInterpolatedVertex(uint firstIndex, uint secondIndex, mat4 model, vec4
     return interpolatedPoint;
 }
 
+vec4 extractScale(mat4 model){
+    vec4 scale;
+    for(int i = 0; i < 4; i++){
+        scale[i] = length(model[i]);
+    }
+    return scale;
+}
+
 void main(){
     Vertex interpolatedVertices[4];
     vec4 worldPositions[4];
@@ -139,6 +148,7 @@ void main(){
         outColor[i]    = interpolatedVertices[i].color;
         outTexCoord[i] = interpolatedVertices[i].texCoord;
         outWorldPos[i] = worldPositions[i];
+        outScale[i] = extractScale(model);
         outCamPos[i] = -ubo.viewTranslate;
     }
 

@@ -245,7 +245,6 @@ void Camera::finalizeOrthogonalRotation() {
 
     orthonormalize();
 
-    printVectors();
 }
 
 void Camera::zoom(float newFOV){

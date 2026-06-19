@@ -213,20 +213,20 @@ class WorldGenerator {
 
     bool causesOverlap(Room);
 
-    inline void printVec(std::string name, glm::vec4 vec) {
-        std::cout << name << ": {";
+    inline void printVec(glm::vec4 vec) {
+        std::cout << "{";
         for (int i = 0; i < 4; i++) {
             std::cout << vec[i];
             if (i != 4) std::cout << " ";
         }
-        std::cout << "}" << std::endl;
+        std::cout << "}";
     }
 
     glm::ivec4 getRandIvec4(glm::ivec4, glm::ivec4);
 
     unsigned getGridVal(glm::ivec4);
 
-    glm::vec4 gridToWorld(glm::ivec4);
+    
 
     //builder functions
     int wallWithDoor(glm::vec4, glm::vec3, int);
@@ -320,11 +320,17 @@ class WorldGenerator {
         worldGrid[2][2][2][3] = 4;
     }
 
+    int renderGridDebug();
+    int renderCorridorDebug();
+    glm::vec4 getDebugGridOffset(int);
 public:
     WorldGenerator(Scene* scene = nullptr);
     int randGenerate();
     glm::vec4 getSpawnPos();
     glm::ivec4 worldToGrid(glm::vec4);
+
+    glm::vec4 placeInGrid(glm::ivec4);
+    glm::vec4 gridToWorld(glm::ivec4);
 
     bool checkInGoalRoom(glm::vec4);
     bool isValidMove(glm::vec4, glm::vec4);

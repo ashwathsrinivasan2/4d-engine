@@ -65,9 +65,6 @@ glm::vec4 WorldGenerator::getSpawnPos() {
 
 int WorldGenerator::randGenerate() {
 
-    //initialize worldGrid
-    
-
     //generate rooms
     for (int i = 0; i < numRooms; i++) {
         bool overlap = true;
@@ -75,7 +72,7 @@ int WorldGenerator::randGenerate() {
         while (overlap) {
             newRoom.dimensions = getRandIvec4(minRoomDim, maxRoomDim);
             newRoom.minCorner = getRandIvec4(glm::ivec4(0), glm::ivec4(gridRes - 1) - newRoom.dimensions);
-            
+
             overlap = causesOverlap(newRoom);
         }
         rooms.push_back(newRoom);
@@ -107,9 +104,6 @@ int WorldGenerator::randGenerate() {
 
     startRoom = currMin;
     endRoom = currMax;
-
-    printVec("endRoom minCorner", rooms[endRoom].minCorner);
-    printVec("endRoom dimensions", rooms[endRoom].dimensions);
 
     std::vector<std::vector<bool>> adjMatrix = pentachoronizeRooms();
 
@@ -151,7 +145,7 @@ int WorldGenerator::randGenerate() {
                     }
                 }
 
-                
+
                 std::vector<glm::ivec4> path = aStar(i, j);
 
                 paths.push_back(path);
@@ -168,7 +162,7 @@ int WorldGenerator::randGenerate() {
                 }
                 start--;
 
-                
+
 
                 //reset goal room cells to 1
                 for (int k = min.x; k < min.x + dim.x; k++) {
@@ -205,16 +199,18 @@ int WorldGenerator::randGenerate() {
                     }
                 }
 
-                if(!contains(doorways[path[start]], startDir))
-                doorways[path[start]].push_back(startDir);
+                if (!contains(doorways[path[start]], startDir))
+                    doorways[path[start]].push_back(startDir);
 
                 if (!contains(doorways[path[end]], endDir))
-                doorways[path[end + 1]].push_back(endDir);
+                    doorways[path[end + 1]].push_back(endDir);
 
-               
+
             }
         }
     }
+
+   
 
     //get corridors from path
 
@@ -237,23 +233,18 @@ int WorldGenerator::randGenerate() {
         glm::ivec4 currEnd = currStart;
         bool corridorStored = false;
 
-        for(int j = start; j <= end; j++){
-            
-            if (checkIfStraight(path[j])) {
+        for (int j = start; j <= end; j++) {
+
+            if (getGridVal(path[j]) == 2 && checkIfStraight(path[j])) {
                 currEnd = path[j];
                 corridorStored = true;
-            } else {
+            }
+            else {
 
                 //add corridor segment
                 if (corridorStored) {
                     //get direction of corridor segment
-                    int numDiff = 0;
-                    for (int k = 0; k < 4; k++) {
-                        if (currStart[k] != path[j][k]) {
-                            numDiff++;
-                        }
-                    }
-                    if (numDiff != 1) std::cout << "ERROR" << std::endl;
+
                     int dir;
                     if (currStart.x != path[j].x) {
                         dir = 0;
@@ -268,13 +259,13 @@ int WorldGenerator::randGenerate() {
                         dir = 3;
                     }
                     else {
-                        std::cout << "ERROR" << std::endl;
+                        std::cout << "ERROR - Degenerate corridor (same cell) - (" << corridors.size() << ")" << std::endl;
                     }
 
                     //check if already added
                     bool duplicate = false;
                     for (int k = 0; k < corridors.size(); k++) {
-                        if (corridors[k].start == currStart) {
+                        if (corridors[k].start == currStart || corridors[k].start == currEnd) {
                             duplicate = true;
                             break;
                         }
@@ -285,13 +276,12 @@ int WorldGenerator::randGenerate() {
                         corridors.push_back(newCorridor);
                     }
 
-                    
+
                 }
                 corridorStored = false;
-                
+
                 //add corner if not already added
-                if (j <= end) {
-                    CorridorCorner newCorner(getWalledDirections(path[j]), path[j]);
+                if (getGridVal(path[j]) == 2 && j <= end) {
 
                     bool duplicate = false;
                     for (int k = 0; k < corridorCorners.size(); k++) {
@@ -301,14 +291,49 @@ int WorldGenerator::randGenerate() {
                     }
 
                     if (!duplicate) {
+                        CorridorCorner newCorner(getWalledDirections(path[j]), path[j]);
                         corridorCorners.push_back(newCorner);
                     }
                 }
 
                 currStart = path[j + 1];
                 currEnd = path[j + 1];
-      
-                
+
+
+            }
+        }
+
+        if (corridorStored) {
+            //get direction of corridor segment
+            int dir;
+            if (currStart.x != path[end + 1].x) {
+                dir = 0;
+            }
+            else if (currStart.y != path[end + 1].y) {
+                dir = 1;
+            }
+            else if (currStart.z != path[end + 1].z) {
+                dir = 2;
+            }
+            else if (currStart.w != path[end + 1].w) {
+                dir = 3;
+            }
+            else {
+                std::cout << "ERROR - Degenerate corridor (same cell) - {" << corridors.size() << ")" << std::endl;
+            }
+
+            //check if already added
+            bool duplicate = false;
+            for (int k = 0; k < corridors.size(); k++) {
+                if (corridors[k].start == currStart) {
+                    duplicate = true;
+                    break;
+                }
+            }
+
+            if (!duplicate) {
+                Corridor newCorridor(currStart, currEnd, dir);
+                corridors.push_back(newCorridor);
             }
         }
     }
@@ -396,9 +421,99 @@ bool WorldGenerator::checkAdjacentCellsMatch(glm::ivec4 a, glm::ivec4 b) {
     return true;
 }
 
-glm::vec4 WorldGenerator::gridToWorld(glm::ivec4 gridPos) {
+glm::vec4 WorldGenerator::placeInGrid(glm::ivec4 gridPos) {
     return glm::vec4(gridPos) - glm::vec4(gridRes / 2.f) + glm::vec4(0.5f);
 }
+
+glm::vec4 WorldGenerator::gridToWorld(glm::ivec4 gridPos) {
+    return gridScale * placeInGrid(gridPos);
+}
+
+
+
+int WorldGenerator::renderGridDebug() {
+    std::vector<int> grid;
+    for (int i = 0; i < gridRes; i++) {
+        for (int j = 0; j < gridRes; j++) {
+            for (int k = 0; k < gridRes; k++) {
+                for (int l = 0; l < gridRes; l++) {
+                    int val = getGridVal(glm::ivec4(i, j, k, l));
+                    int tess;
+                    switch (val) {
+                    case 1:
+                        tess = scene->Tesseract(glm::vec3(1.f));
+                        break;
+                    case 2:
+                        tess = scene->Tesseract(glm::vec3(0.f, 1.f, 1.f));
+                        break;
+                    case 3:
+                        tess = scene->Tesseract(glm::vec3(1.f, 0.f, 0.f));
+                        break;
+                    case 4:
+                        tess = scene->Tesseract(glm::vec3(1.f, 1.f, 0.f));
+                        break;
+                    default:
+                        continue;
+                    }
+
+                    scene->translate(tess, placeInGrid(glm::ivec4(i, j, k, l)));
+                    scene->scale(tess, glm::vec4(0.5f, 0.5f, 0.5f, 1.f));
+                    grid.push_back(tess);
+                }
+            }
+        }
+    }
+
+    int map = scene->groupEntities(grid);
+    scene->scale(map, glm::vec4(gridScale));
+    
+
+    return map;
+}
+
+int WorldGenerator::renderCorridorDebug() {
+    std::vector<int> corridorData;
+    for (int i = 0; i < corridors.size(); i++) {
+        glm::ivec4 start = corridors[i].start;
+        glm::ivec4 end = corridors[i].end;
+        int dir = corridors[i].direction;
+
+        int first = start[dir];
+        int last = end[dir];
+        if (first > last) {
+            first = end[dir];
+            last = start[dir];
+        }
+
+        for (int j = first; j <= last; j++) {
+            start[dir] = j;
+            int tess = scene->Tesseract(glm::vec3(0.f, 0.5f, 1.f));
+            scene->scale(tess, glm::vec4(0.5f, 0.5f, 0.5f, 1.f));
+            scene->translate(tess, placeInGrid(start));
+            corridorData.push_back(tess);
+        }
+    }
+
+    for (int i = 0; i < corridorCorners.size(); i++) {
+        glm::ivec4 pos = corridorCorners[i].position;
+        int tess = scene->Tesseract(glm::vec3(1.f, 0.5f, 0.f));
+        scene->scale(tess, glm::vec4(0.5f, 0.5f, 0.5f, 1.f));
+        scene->translate(tess, placeInGrid(pos));
+        corridorData.push_back(tess);
+    }
+
+    int corridors = scene->groupEntities(corridorData);
+    scene->scale(corridors, glm::vec4(gridScale));
+
+    return corridors;
+
+}
+
+glm::vec4 WorldGenerator::getDebugGridOffset(int offsetAmount) {
+    float translate = gridScale * (float)gridRes * 1.1f * (float)offsetAmount;
+    return glm::vec4(translate, 0.f, 0.f, 0.f);
+}
+
 
 
 int WorldGenerator::createMeshes() {
@@ -469,11 +584,6 @@ int WorldGenerator::createMeshes() {
 
                         //if current cell is a door
                         if (currMin != offset && getGridVal(currCell) == 4 && contains(doorways[currCell], j)) {
-                            std::cout << "Cell found: i = " << i << ", j = " << j << ", currCell = " << currCell.x << ", " << currCell.y << ", " << currCell.z << ", " << currCell.w << ", doorways = ";
-                            for (int n = 0; n < doorways[currCell].size(); n++) {
-                                std::cout << doorways[currCell][n] << ", ";
-                            }
-                            std::cout << std::endl << std::endl;
                             bool doorReached = false;
                             numDoors++;
                             //fill remaining row
@@ -699,8 +809,6 @@ int WorldGenerator::createMeshes() {
             }
         }
 
-        std::cout << sections.size() << std::endl;
-
         int room = scene->groupEntities(sections);
         glm::vec4 scalar = glm::vec4(gridScale);
         scene->scale(room, scalar);
@@ -794,7 +902,7 @@ int WorldGenerator::createMeshes() {
             //position door frame
             if (doorFrame.size() > 0) {
                 int frame = scene->groupEntities(doorFrame);
-                translate = gridToWorld(position);
+                translate = placeInGrid(position);
                 translate[directions[i] / 2] += directions[i] % 2 == 0 ? 0.5f : -0.5f;
                 scene->translate(frame, translate);
                 doorFrames.push_back(frame);
@@ -869,10 +977,10 @@ std::vector<glm::ivec4> WorldGenerator::aStar(int roomA, int roomB) {
 
     std::vector<std::vector<int>> weights = {
         {10, 9999, 1, 10, 10},
-        {10, 10, 1, 9999, 9999},
-        {10, 9999, 1, 20, 10},
-        {9999, 9999, 9999, 10, 10},
-        {10, 10, 1, 9999, 9999}
+        {10, 10, 10, 9999, 1},
+        {10, 9999, 1, 10, 10},
+        {9999, 9999, 9999, 1, 9999},
+        {10, 9999, 1, 1, 9999}
     };
 
 
@@ -909,8 +1017,19 @@ std::vector<glm::ivec4> WorldGenerator::aStar(int roomA, int roomB) {
                 if (newPos.x < 0 || newPos.y < 0 || newPos.z < 0 || newPos.w < 0) continue;
                 
                 int weight = weights[getGridVal(pos)][getGridVal(newPos)];
+                
                 int newG = cost + weight;
-                fringe.push(newG, getManhattanDistance(newPos, goal), newPos, pos);
+
+                if ((getGridVal(pos) == 2 || getGridVal(pos) == 0) && getGridVal(newPos) == 1) {
+                    //std::cout << "ERROR - Corridor intersects room ";
+                    //printVec(glm::vec4(newPos));
+                    //std::cout << std::endl;
+                    
+                }
+                else {
+                    fringe.push(newG, getManhattanDistance(newPos, goal), newPos, pos);
+                }
+                
             }
         }
     }
