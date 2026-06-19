@@ -76,6 +76,7 @@ void Application::handleInput(float time) {
     int lastKeyRight = keyRight;
     int lastKeyLeft = keyLeft;
     int lastKeySpace = keySpace;
+    int lastKeyI = keyI;
 
     glm::vec4 lastPosition = scene->getCamera().getPosition();
 
@@ -136,6 +137,9 @@ void Application::handleInput(float time) {
         std::cout << std::endl;
         teleported = true;
     }
+    if (keyI == GLFW_PRESS && lastKeyI != GLFW_PRESS) {
+        printVec(glm::vec4(worldGen.worldToGrid(scene->getCamera().getPosition())));
+    }
 
     if (!teleported && collisionsEnabled) {
         glm::vec4 currPosition = scene->getCamera().getPosition();
@@ -171,8 +175,7 @@ void Application::handleInput(float time) {
     if (lastKeySpace != GLFW_PRESS && keySpace == GLFW_PRESS) {
         scene->getCamera().initializeOrthogonalRotation(true);
         rotating = true;
-        rotationTime = 0.f;
-        printVec(glm::vec4(worldGen.worldToGrid(scene->getCamera().getPosition())));
+        rotationTime = 0.f;       
     }
 
     
